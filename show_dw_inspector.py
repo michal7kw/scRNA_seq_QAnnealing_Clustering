@@ -11,6 +11,9 @@ matplotlib.use("agg")
 from matplotlib import pyplot as plt
 import dwave.inspector
 
+import numpy as np
+import json
+
 # ------- Set up graph -------
 G = nx.Graph()
 
@@ -87,5 +90,5 @@ for sample, E in response.data(fields=['sample','energy']):
         break
 
 
-dwave.inspector.show(response)
+dwave.inspector.show(response, block='never')
 
