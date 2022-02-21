@@ -87,7 +87,7 @@ def clustering(G, iteration, color):
     return
 
 
-input_data = pd.read_csv('edge_list2v500knn.csv', header=0, usecols={1,2})
+input_data = pd.read_csv('./Datasets/edge_list2v500knn.csv', header=0, usecols={1,2})
 
 records = input_data.to_records(index=False)
 result = list(records)
@@ -98,11 +98,21 @@ G = nx.Graph()
 
 G.add_edges_from(result)
 pos = nx.spring_layout(G)
+len(G.nodes)
+
+plt.cla()
+
+nodes = ()
+nx.draw_networkx_nodes(G, pos, node_size=10, nodelist=G.nodes)
+nx.draw_networkx_edges(G, pos, edgelist=G.edges, style='solid', alpha=0.5, width=1)
+
+filename = "./Output/G_knn_recur_in.png"
+plt.savefig(filename, bbox_inches='tight')
 
 iteration = 1
 clustering(G, iteration, color=0)
 
-sum(list(G.nodes(data=True)[0].values()))
+# sum(list(G.nodes(data=True)[0].values()))
 
 cut_edges = [(u, v) for u, v in G.edges if list(G.nodes[u].values())[-1]!=list(G.nodes[v].values())[-1]]
 uncut_edges = [(u, v) for u, v in G.edges if list(G.nodes[u].values())[-1]==list(G.nodes[v].values())[-1]]
@@ -120,7 +130,7 @@ nx.draw_networkx_nodes(G, pos, node_size=10, nodelist=nodes,  node_color=colors)
 nx.draw_networkx_edges(G, pos, edgelist=cut_edges, style='dashdot', alpha=0.5, width=1)
 nx.draw_networkx_edges(G, pos, edgelist=uncut_edges, style='solid', width=1)
 
-filename = "G_in.png"
+filename = "./Output/G_knn_recur_out.png"
 plt.savefig(filename, bbox_inches='tight')
 
 nx.write_gexf(G, "final_graph.gexf")

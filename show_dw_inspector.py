@@ -2,7 +2,7 @@
 import networkx as nx
 from collections import defaultdict
 from itertools import combinations
-from dwave.system.samplers import DWaveSampler
+from dwave.system import DWaveSampler
 from dwave.system.composites import EmbeddingComposite, LazyFixedEmbeddingComposite
 import math
 import pandas as pd
@@ -14,7 +14,7 @@ import dwave.inspector
 # ------- Set up graph -------
 G = nx.Graph()
 
-input_data = pd.read_csv('edge_list2.csv', header=0, usecols={1,2})
+input_data = pd.read_csv('./Datasets/edge_list2.csv', header=0, usecols={1,2})
 
 records = input_data.to_records(index=False)
 result = list(records)
@@ -75,13 +75,12 @@ for sample, E in response.data(fields=['sample','energy']):
     uncut_edges = [(u, v) for u, v in G.edges if sample[u]==sample[v]]
 
     plt.cla()
-    nx.draw_networkx_nodes(G, pos, node_size=30, nodelist=S0, node_color='r')
-    nx.draw_networkx_nodes(G, pos, node_size=30, nodelist=S1, node_color='c')
+    nx.draw_networkx_nodes(G, pos, node_size=10, nodelist=S0, node_color='r')
+    nx.draw_networkx_nodes(G, pos, node_size=10, nodelist=S1, node_color='c')
     nx.draw_networkx_edges(G, pos, edgelist=cut_edges, style='dashdot', alpha=0.5, width=3)
-    nx.draw_networkx_edges(G, pos, edgelist=uncut_edges, style='solid', width=3)
-    nx.draw_networkx_labels(G, pos)
+    nx.draw_networkx_edges(G, pos, edgelist=uncut_edges, style='solid', width=1)
 
-    filename = "clusters_constrained_" + str(i) + ".png"
+    filename = "./Output/clusters_constrained_" + str(i) + ".png"
     plt.savefig(filename, bbox_inches='tight')
     print("\nYour plot is saved to {}".format(filename))
     if (i > 5):
@@ -89,3 +88,4 @@ for sample, E in response.data(fields=['sample','energy']):
 
 
 dwave.inspector.show(response)
+
