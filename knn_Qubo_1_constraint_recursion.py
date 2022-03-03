@@ -133,5 +133,5 @@ nx.draw_networkx_edges(G, pos, edgelist=uncut_edges, style='solid', width=1)
 filename = "./Output/G_knn_recur_out.png"
 plt.savefig(filename, bbox_inches='tight')
 
-nx.write_gexf(G, "final_graph.gexf")
+nx.write_gexf(G, "final_graph_knn.gexf")
 

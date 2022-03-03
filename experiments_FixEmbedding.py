@@ -1,36 +1,46 @@
 # ------ Import necessary packages ----
+import math
+import random
+import pandas as pd
 import networkx as nx
 from collections import defaultdict
 from itertools import combinations
-from dwave.system import DWaveSampler
-from dwave.system.composites import EmbeddingComposite, LazyFixedEmbeddingComposite
-import math
-import pandas as pd
 import matplotlib
 matplotlib.use("agg")
 from matplotlib import pyplot as plt
+
+import dimod
 import dwave.inspector
+from minorminer import find_embedding
+from dwave.system import LeapHybridSampler
+from dwave.system.samplers import DWaveSampler
+from dwave.system.composites import EmbeddingComposite, LazyFixedEmbeddingComposite, FixedEmbeddingComposite
 
-import numpy as np
 import json
-import random
+import pickle
 
-# ------- Set up graph -------
-G = nx.Graph()
+size = str(128)
+graph_in_name = ''.join(["./Datasets/", size, "_check_point_graph_snn.gexf"])
+graph_out_name = ''.join(["./Datasets/", size, "_check_point_graph_snn_out.gexf"])
+img_in_name = ''.join(["./Output/", size, "_check_point_graph_snn_in_fix.png"])
+img_out_name = ''.join(["./Output/", size, "_check_point_graph_snn_out_fix.png"])
+embed_name = ''.join(["./Embedding/", size, "_fix_embedding.pkl"])
 
-input_data = pd.read_csv('./Datasets/edge_list2.csv', header=0, usecols={1,2})
+a_file = open(embed_name, "rb")
+embedding = pickle.load(a_file)
+print(embedding)
 
-records = input_data.to_records(index=False)
-result = list(records)
+G = nx.read_gexf(graph_in_name)
 
-G.add_edges_from(result)
 pos = nx.spring_layout(G)
 
-len(G.nodes)
-# print("Graph on {} nodes created with {} out of {} possible edges.".format(len(G.nodes), len(G.edges), len(G.nodes) * (len(G.nodes)-1) / 2))
+plt.cla()
 
-# ------- Set up our QUBO dictionary -------
-# Initialize our Q matrix
+nx.draw_networkx_nodes(G, pos, node_size=10, nodelist=G.nodes)
+nx.draw_networkx_edges(G, pos, edgelist=G.edges, style='solid', alpha=0.5, width=1)
+
+plt.savefig(img_in_name, bbox_inches='tight')
+
 Q = defaultdict(int)
 gamma = 0.01
 
@@ -49,17 +59,17 @@ for i, j in combinations(G.nodes, 2):
 
 # ------- Run our QUBO on the QPU -------
 print("Running QUBO...")
-# Set chain strength
 chain_strength = 4
 
-# Run the QUBO on the solver from your config file
-sampler = EmbeddingComposite(DWaveSampler())
-# sampler = LazyFixedEmbeddingComposite(DWaveSampler())
+dwave_sampler = DWaveSampler()
+# embedding = find_embedding(Q, dwave_sampler.edgelist)
 
-response = sampler.sample_qubo(Q,
-                               chain_strength=chain_strength,
-                               num_reads=5000,
-                               label='Example - Graph Partitioning')
+# a_file = open(embed_name, "wb")
+# pickle.dump(embedding, a_file)
+# a_file.close()
+
+sampler = FixedEmbeddingComposite(DWaveSampler(), embedding)
+response = sampler.sample_qubo(Q, chain_strength=chain_strength, num_reads=100)
 
 # ------- Print results to user -------
 print('-' * 60)
@@ -68,7 +78,7 @@ print('-' * 60)
 
 i=0
 for sample, E in response.data(fields=['sample','energy']):
-    i = i + 1
+    i += 1
     S0 = [k for k,v in sample.items() if v == 0]
     S1 = [k for k,v in sample.items() if v == 1]
     print('{:>15s}{:>15s}{:^15s}{:^15s}'.format(str(S0),str(S1),str(E),str(int(-1*E))))
@@ -84,27 +94,14 @@ for sample, E in response.data(fields=['sample','energy']):
     nx.draw_networkx_edges(G, pos, edgelist=cut_edges, style='dashdot', alpha=0.5, width=3)
     nx.draw_networkx_edges(G, pos, edgelist=uncut_edges, style='solid', width=1)
 
-    filename = "./Output/clusters_constrained_" + str(i) + ".png"
+    filename = "./Output/fix_" + size + "_" + str(i) + ".png"
     plt.savefig(filename, bbox_inches='tight')
     print("\nYour plot is saved to {}".format(filename))
-
-    col = random.randint(0, 100)
-    for i in S0:
-        # G.nodes(data=True)[i][label] = 100 - color
-        G.nodes(data=True)[i]["label"] = col
     
-    col = random.randint(120, 220)    
-    for i in S1:
-        # G.nodes(data=True)[i][label] = color - 100
-        G.nodes(data=True)[i]["label"] = col
-    
-    # if (i==1):
-    #     nx.write_gexf(G, "final_graph_show_dw_knn.gexf")
-    # if (i > 3):
-    #     break
-    nx.write_gexf(G, "final_graph_show_dw_knn.gexf")
+    if i == 1:
+        nx.write_gexf(G, graph_out_name)
 
-    break
+    if i > 3:
+        break
 
 dwave.inspector.show(response, block='never')
-

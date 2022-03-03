@@ -84,30 +84,18 @@ def clustering(G, iteration, color):
 
     return
 
-# ------- import from csv edgelist -------
-# input_data = pd.read_csv('./Datasets/edge_list2v500snn_k10_max.csv', header=0, usecols={1,2,3})
+G = nx.read_gexf("./Datasets/check_point_graph_snn.gexf")
 
-# records = input_data.to_records(index=False)
-# result = list(records)
-# len(result)
-# G = nx.Graph()
-# G.add_weighted_edges_from(result)
-
-# ------- import from .gexf adjacency matrix -------
-G = nx.Graph()
-G = nx.read_gexf("./Datasets/final_graph_snn_5.gexf")
 pos = nx.spring_layout(G)
 
-# ------- plot input graph -------
 plt.cla()
 
 nx.draw_networkx_nodes(G, pos, node_size=10, nodelist=G.nodes)
 nx.draw_networkx_edges(G, pos, edgelist=G.edges, style='solid', alpha=0.5, width=1)
 
-filename = "./Output/G_snn_in.png"
+filename = "./Output/G_experiment_in.png"
 plt.savefig(filename, bbox_inches='tight')
 
-# ------- run clustering -------
 iteration = 1
 clustering(G, iteration, color=0)
 
@@ -120,7 +108,6 @@ len(uncut_edges)
 # colors = [sum(list(y.values())) for x,y in G.nodes(data=True)]
 colors = [list(y.values())[-1] for x,y in G.nodes(data=True)]
 
-# ------- plot and & output graph -------
 plt.cla()
 
 nodes = G.nodes()
@@ -128,8 +115,8 @@ nx.draw_networkx_nodes(G, pos, node_size=10, nodelist=nodes,  node_color=colors)
 nx.draw_networkx_edges(G, pos, edgelist=cut_edges, style='dashdot', alpha=0.5, width=1)
 nx.draw_networkx_edges(G, pos, edgelist=uncut_edges, style='solid', width=1)
 
-filename = "G_snn_out.png"
+filename = "G_experiment_out.png"
 plt.savefig(filename, bbox_inches='tight')
 
-nx.write_gexf(G, "final_graph_snn.gexf")
+nx.write_gexf(G, "G_experiment_out.gexf")
 
