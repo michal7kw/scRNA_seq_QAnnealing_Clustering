@@ -94,18 +94,54 @@ def clustering(G, iteration, color):
 # G.add_weighted_edges_from(result)
 
 # ------- import from .gexf adjacency matrix -------
-G = nx.Graph()
-G = nx.read_gexf("./Datasets/final_graph_snn_5.gexf")
+
+size = 128
+k = 5
+dim = 15
+
+# id_type, type = int(r.id_type)-1, r.type
+# n = int(r.n)
+# k = int(r.k)
+# ord = int(r.ord)
+# dim = int(r.dim)
+
+# if id_type==1 or id_type==3:
+#   file_name = ''.join(["./graphs_samples/", str(n), "_graph_snn", "_k", str(k), "_dim", str(dim), "_", type[id_type], str(ord), ".gexf"])
+# else:
+#   file_name = ''.join(["./graphs_samples/", str(n), "_graph_snn", "_k", str(k), "_dim", str(dim), "_", type[id_type], ".gexf"])
+
+# graph_in_name = ''.join(["./Datasets/", str(size), "_graph_snn", "_k", str(k), "_dim", str(dim), ".gexf"])
+graph_in_name = ''.join(["./Datasets/","128_graph_snn_k5_dim15_trimmed15.gexf"])
+
+graph_in_name_csv = ''.join(["./Datasets/", str(size), "graph_snn", "_k", str(k), "_dim", str(dim), ".csv"])
+graph_out_name = ''.join(["./Datasets/", str(size), "_check_point_graph_snn_fixed", "_k", str(k), "_dim", str(dim), "_out.gexf"])
+# img_in_name = ''.join(["./Output/", str(size), "_check_point_graph_snn_in_fixed", "_k", str(k), "_dim", str(dim),".png"])
+img_in_name = ''.join(["./Output/","128_graph_snn_k5_dim15_trimmed15_in.png"])
+# img_out_name = ''.join(["./Output/", str(size), "_check_point_graph_snn_out_fixed", "_k", str(k), "_dim", str(dim),".png"])
+img_out_name = ''.join(["./Output/","128_graph_snn_k5_dim15_trimmed15_out.png"])
+
+G = nx.read_gexf(graph_in_name)
 pos = nx.spring_layout(G)
 
-# ------- plot input graph -------
 plt.cla()
-
 nx.draw_networkx_nodes(G, pos, node_size=10, nodelist=G.nodes)
 nx.draw_networkx_edges(G, pos, edgelist=G.edges, style='solid', alpha=0.5, width=1)
 
-filename = "./Output/G_snn_in.png"
-plt.savefig(filename, bbox_inches='tight')
+plt.savefig(img_in_name, bbox_inches='tight')
+
+
+# G = nx.Graph()
+# G = nx.read_gexf("./Datasets/final_graph_snn_5.gexf")
+# pos = nx.spring_layout(G)
+
+# ------- plot input graph -------
+# plt.cla()
+
+# nx.draw_networkx_nodes(G, pos, node_size=10, nodelist=G.nodes)
+# nx.draw_networkx_edges(G, pos, edgelist=G.edges, style='solid', alpha=0.5, width=1)
+
+# filename = "./Output/G_snn_in.png"
+# plt.savefig(filename, bbox_inches='tight')
 
 # ------- run clustering -------
 iteration = 1

@@ -16,6 +16,7 @@ from dwave.system import LeapHybridSampler
 from dwave.system.samplers import DWaveSampler
 from dwave.system.composites import EmbeddingComposite, LazyFixedEmbeddingComposite, FixedEmbeddingComposite
 
+
 import json
 import pickle
 
@@ -24,7 +25,7 @@ k = 5
 dim = 15
 # graph_in_name = ''.join(["./Datasets/", str(size), "_check_point_graph_snn.gexf"])
 graph_in_name = ''.join(["./Datasets/", str(size), "_check_point_graph_snn", "_k", str(k), "_dim", str(dim), ".gexf"])
-graph_in_name = ''.join(["./Datasets/","8trimed_128_check_point_graph_snn_k5_dim15.gexf"])
+# graph_in_name = ''.join(["./Datasets/","8trimed_128_check_point_graph_snn_k5_dim15.gexf"])
 
 graph_in_name_csv = ''.join(["./Datasets/", str(size), "graph_snn", "_k", str(k), "_dim", str(dim), ".csv"])
 # graph_out_name = ''.join(["./Datasets/", str(size), "_check_point_graph_snn_out.gexf"])
@@ -35,6 +36,7 @@ img_in_name = ''.join(["./Output/", str(size), "_check_point_graph_snn_in_fixed"
 img_out_name = ''.join(["./Output/", str(size), "_check_point_graph_snn_out_fixed", "_k", str(k), "_dim", str(dim),".png"])
 # embed_name = ''.join(["./Embedding/", str(size), "_fix_embedding.pkl"])
 embed_name = ''.join(["./Embedding/", str(size), "_fix_embedding", "_k", str(k), "_dim", str(dim), ".pkl"])
+embed_name = ''.join(["./Embedding/", str(size), "_fix_embedding_PC", "_k", str(k), "_dim", str(dim), ".pkl"])
 
 a_file = open(embed_name, "rb")
 embedding = pickle.load(a_file)
@@ -91,9 +93,9 @@ chain_strength = 4
 
 # dwave_sampler = DWaveSampler()
 # embedding = find_embedding(Q, dwave_sampler.edgelist)
-sampler = FixedEmbeddingComposite(DWaveSampler(), embedding)
+# sampler = FixedEmbeddingComposite(DWaveSampler(), embedding)
 
-# sampler = LazyFixedEmbeddingComposite(DWaveSampler())
+sampler = LazyFixedEmbeddingComposite(DWaveSampler())
 
 response = sampler.sample_qubo(Q, chain_strength=chain_strength, num_reads=1000)
 
