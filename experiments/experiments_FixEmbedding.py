@@ -24,19 +24,24 @@ size = 128
 k = 5
 dim = 15
 # graph_in_name = ''.join(["./Datasets/", str(size), "_check_point_graph_snn.gexf"])
-graph_in_name = ''.join(["./Datasets/", str(size), "_check_point_graph_snn", "_k", str(k), "_dim", str(dim), ".gexf"])
+graph_in_name = ''.join(["./DatasetsIn/", str(size), "_check_point_graph_snn", "_k", str(k), "_dim", str(dim), ".gexf"])
 # graph_in_name = ''.join(["./Datasets/","8trimed_128_check_point_graph_snn_k5_dim15.gexf"])
 
 graph_in_name_csv = ''.join(["./Datasets/", str(size), "graph_snn", "_k", str(k), "_dim", str(dim), ".csv"])
 # graph_out_name = ''.join(["./Datasets/", str(size), "_check_point_graph_snn_out.gexf"])
 graph_out_name = ''.join(["./Datasets/", str(size), "_check_point_graph_snn_fixed", "_k", str(k), "_dim", str(dim), "_out.gexf"])
 # img_in_name = ''.join(["./Output/", str(size), "_check_point_graph_snn_in_fix.png"])
-img_in_name = ''.join(["./Output/", str(size), "_check_point_graph_snn_in_fixed", "_k", str(k), "_dim", str(dim),".png"])
+img_in_name = ''.join(["./PlotsIn/", str(size), "_check_point_graph_snn_in_fixed", "_k", str(k), "_dim", str(dim),".png"])
 # img_out_name = ''.join(["./Output/", str(size), "_check_point_graph_snn_out_fix.png"])
-img_out_name = ''.join(["./Output/", str(size), "_check_point_graph_snn_out_fixed", "_k", str(k), "_dim", str(dim),".png"])
+img_out_name = ''.join(["./PlotsOut/", str(size), "_check_point_graph_snn_out_fixed", "_k", str(k), "_dim", str(dim),".png"])
 # embed_name = ''.join(["./Embedding/", str(size), "_fix_embedding.pkl"])
 embed_name = ''.join(["./Embedding/", str(size), "_fix_embedding", "_k", str(k), "_dim", str(dim), ".pkl"])
 embed_name = ''.join(["./Embedding/", str(size), "_fix_embedding_PC", "_k", str(k), "_dim", str(dim), ".pkl"])
+
+type_names = ["_", "_trimmed_", "_negedges_", "_trimmed_negedges_"]
+custom=""
+type=0
+embed_name = ''.join(["./Embedding/", str(n), "_graph_snn", "_k", str(k), "_dim", str(dim), "_g", str(0.001), type_names[type], str(ord), custom, ".json"])
 
 a_file = open(embed_name, "rb")
 embedding = pickle.load(a_file)
@@ -72,7 +77,7 @@ nx.draw_networkx_edges(G, pos, edgelist=G.edges, style='solid', alpha=0.5, width
 plt.savefig(img_in_name, bbox_inches='tight')
 
 Q = defaultdict(int)
-gamma = 1 / len(G.edges)
+gamma = 100 / len(G.edges)
 
 # Fill in Q matrix
 for u, v in G.edges:
@@ -93,9 +98,9 @@ chain_strength = 4
 
 # dwave_sampler = DWaveSampler()
 # embedding = find_embedding(Q, dwave_sampler.edgelist)
-# sampler = FixedEmbeddingComposite(DWaveSampler(), embedding)
+sampler = FixedEmbeddingComposite(DWaveSampler(), embedding)
 
-sampler = LazyFixedEmbeddingComposite(DWaveSampler())
+# sampler = LazyFixedEmbeddingComposite(DWaveSampler())
 
 response = sampler.sample_qubo(Q, chain_strength=chain_strength, num_reads=1000)
 
@@ -131,12 +136,12 @@ for sample, E in response.data(fields=['sample','energy']):
     nx.draw_networkx_edges(G, pos, edgelist=cut_edges, style='dashdot', alpha=0.5, width=3)
     nx.draw_networkx_edges(G, pos, edgelist=uncut_edges, style='solid', width=1)
 
-    filename = "./Output/2fix_" + str(size) + "_" + str(i) + ".png"
+    filename = "./PlotsOut/2fix_" + str(size) + "_" + str(i) + ".png"
     plt.savefig(filename, bbox_inches='tight')
     print("\nYour plot is saved to {}".format(filename))
     
-    if i == 1:
-        nx.write_gexf(G, graph_out_name)
+    # if i == 1:
+    #     nx.write_gexf(G, graph_out_name)
 
     if i > 3:
         break
