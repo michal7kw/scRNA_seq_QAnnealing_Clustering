@@ -1,4 +1,4 @@
-![stronghold logo](img/logo.png)
+![logo](img/logo.png)
 
 The project uses Dwave Advantage QPU
 ## Installation
@@ -18,3 +18,9 @@ Input graphs were generated using the Seurat SNN function on preprocessed PBMC s
 
 
 ## License
+
+
+## PrintOuts
+![img1](img/knn_snn.png)
+![img2](img/clusters_and_anno.png)
+![img3](img/clusters_evaluation.png)
