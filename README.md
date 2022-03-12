@@ -12,7 +12,7 @@ pip install dwave-system
 ## Usage
 
 Data are provided in either .csv edge list format or networkx .gxef file.  
-Input graphs were generated using the Seurat SNN function on preprocessed PBMC scRNA data.
+Input graphs were generated using the Seurat SNN on the preprocessed PBMC scRNA data.
 
 ## Contributing
 
