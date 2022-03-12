@@ -134,6 +134,6 @@ DatasetsIn/
 DatasetsOut/
 Embedding/
 experiments_old/
-# PlotsIn/
-# PlotsOut/
+PlotsIn/
+PlotsOut/
 PC/
