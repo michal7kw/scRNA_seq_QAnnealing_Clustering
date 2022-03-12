@@ -15,7 +15,6 @@ Data are provided in either .csv edge list format or networkx .gxef file.
 Input graphs were generated using the Seurat SNN function on preprocessed PBMC scRNA data.
 
 ## Contributing
-?
+
 
 ## License
-?
