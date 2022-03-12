@@ -1,0 +1,2 @@
+Graph representation of scRNA-seq data with the attached clusters labels.
+Can be further verified with marker genes and cell types using included R notebook.
