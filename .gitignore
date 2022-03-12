@@ -130,11 +130,11 @@ dmypy.json
 
 # code samples
 code_samples/
-DatasetsIn/
+# DatasetsIn/
 DatasetsIn_2/
-DatasetsOut/
+# DatasetsOut/
 DatasetsOut_2/
-Embedding/
+# Embedding/
 Embedding_2/
 experiments_old/
 PlotsIn/
