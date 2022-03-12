@@ -21,6 +21,6 @@ Input graphs were generated using the Seurat SNN function on preprocessed PBMC s
 
 
 ## PrintOuts
-![img1](img/knn_snn.png)
-![img2](img/clusters_and_anno.png)
-![img3](img/clusters_evaluation.png)
+<img src="img/knn_snn.png" alt="drawing1" style="width:200px;"/>
+<img src="img/clusters_and_anno.png" alt="drawing2" style="width:200px;"/>
+<img src="img/clusters_evaluation.png" alt="drawing3" style="width:200px;"/>
