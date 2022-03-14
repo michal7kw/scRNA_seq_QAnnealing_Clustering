@@ -3,10 +3,10 @@
 The project uses Dwave Advantage QPU
 ## Installation
 
-The project can be opened using [Dwave IDE workspace](https://ide.dwavesys.io/workspaces/) or can be configured [locally](https://docs.ocean.dwavesys.com/projects/system/en/stable/installation.html).
+The project can be opened using [Dwave IDE workspace](https://ide.dwavesys.io/workspaces/) or can be configured [locally](https://docs.ocean.dwavesys.com/en/stable/overview/install.html).
 
 ```bash
-pip install dwave-system
+pip install dwave-ocean-sdk
 ```
 
 ## Usage
