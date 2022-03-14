@@ -26,20 +26,21 @@ from dwave.system.composites import EmbeddingComposite, LazyFixedEmbeddingCompos
 import json
 import pickle
 
-def define_dirs(n, k, dim, ord, g, custom,type):
+def define_dirs(n, k, dim, ord, g, gf, custom,type):
     # n-size, k-k_nn, dim-dimensions, ord-max_degree, g-gamma, custom-for one's needs, type-type of graph
     type_names = ["_", "_trimmed_", "_negedges_", "_trimmed_negedges_"]
     g = str(g).replace( ".", "")
 
     dirs = {
-        "name"              : ''.join([                   str(n), "_graph_snn", "_k", str(k), "_dim", str(dim), "_g", str(g), type_names[type], str(ord)]                       ),
-        "graph_in"          : ''.join(["./DatasetsIn/"  , str(n), "_graph_snn", "_k", str(k), "_dim", str(dim),               type_names[type], str(ord),         ".gexf"       ]),
-        "graph_in_csv"      : ''.join(["./DatasetsIn/"  , str(n), "_graph_snn", "_k", str(k), "_dim", str(dim),               type_names[type], str(ord),         ".csv"       ]),
-        "graph_out"         : ''.join(["./DatasetsOut/" , str(n), "_graph_snn", "_k", str(k), "_dim", str(dim), "_g", str(g), type_names[type], str(ord), custom, "_out.gexf"   ]),
-        "graph_to_compare"  : ''.join(["./DatasetsOut/" , str(n), "_graph_snn", "_k", str(k), "_dim", str(dim),               type_names[type], str(ord), custom, ".gexf"       ]),
-        "img_in"            : ''.join(["./PlotsIn/"     , str(n), "_graph_snn", "_k", str(k), "_dim", str(dim), "_g", str(g), type_names[type], str(ord), custom, ".png"        ]),
-        "img_out"           : ''.join(["./PlotsOut/"    , str(n), "_graph_snn", "_k", str(k), "_dim", str(dim), "_g", str(g), type_names[type], str(ord), custom, "_out.png"    ]),
-        "embedding"         : ''.join(["./Embedding/"   , str(n), "_graph_snn", "_k", str(k), "_dim", str(dim), "_g", str(g), type_names[type], str(ord), custom, ".json"       ])
+        "name"              : ''.join([                   str(n), "_graph_snn"    , "_k", str(k), "_dim", str(dim),                 type_names[type], str(ord)]                       ),
+        "graph_in"          : ''.join(["./DatasetsIn/"  , str(n), "_graph_snn"    , "_k", str(k), "_dim", str(dim),                 type_names[type], str(ord),         ".gexf"       ]),
+        "graph_in_csv"      : ''.join(["./DatasetsIn/"  , str(n), "_graph_snn"    , "_k", str(k), "_dim", str(dim),                 type_names[type], str(ord),         ".csv"       ]),
+        "graph_out_bqm"     : ''.join(["./DatasetsOut/" , str(n), "_graph_snn"    , "_k", str(k), "_dim", str(dim), "_gf", str(gf), type_names[type], str(ord), custom, "_out.gexf"   ]),
+        "graph_out_dqm"     : ''.join(["./DatasetsOut/" , str(n), "_dqm_graph_snn", "_k", str(k), "_dim", str(dim), "_g", str(g)  , type_names[type], str(ord), custom, ".gexf"       ]),
+        "img_in"            : ''.join(["./PlotsIn/"     , str(n), "_graph_snn"    , "_k", str(k), "_dim", str(dim),                 type_names[type], str(ord), custom, ".png"        ]),
+        "img_out_bqm"       : ''.join(["./PlotsOut/"    , str(n), "_graph_snn"    , "_k", str(k), "_dim", str(dim), "_gf", str(gf), type_names[type], str(ord), custom, "_out.png"    ]),
+        "img_out_dqm"       : ''.join(["./PlotsOut/"    , str(n), "_dqm_graph_snn", "_k", str(k), "_dim", str(dim), "_g", str(g)  , type_names[type], str(ord), custom, "_out.png"    ]),
+        "embedding"         : ''.join(["./Embedding/"   , str(n), "_graph_snn"    , "_k", str(k), "_dim", str(dim),                 type_names[type], str(ord),       , ".json"       ])
     }
     return dirs
 
@@ -65,7 +66,7 @@ def plot_and_save_graph_in(G, pos, dirs):
     plt.savefig(dirs["img_in"], bbox_inches='tight')
     print("graph saved as: ", dirs["img_in"])
 
-def plot_and_save_graph_out(G, pos, dirs):
+def plot_and_save_graph_out_recur2(G, pos, dirs):
     cut_edges = [(u, v) for u, v in G.edges if list(G.nodes[u].values())[-1]!=list(G.nodes[v].values())[-1]]
     uncut_edges = [(u, v) for u, v in G.edges if list(G.nodes[u].values())[-1]==list(G.nodes[v].values())[-1]]
 
@@ -82,9 +83,19 @@ def plot_and_save_graph_out(G, pos, dirs):
     nx.draw_networkx_edges(G, pos, edgelist=cut_edges, style='dashdot', alpha=0.5, width=1)
     nx.draw_networkx_edges(G, pos, edgelist=uncut_edges, style='solid', width=1)
 
-    plt.savefig(dirs["img_out"], bbox_inches='tight')
+    plt.savefig(dirs["img_out_bqm"], bbox_inches='tight')
 
-    nx.write_gexf(G, dirs["graph_out"])
+    nx.write_gexf(G, dirs["graph_out_bqm"])
+
+def plot_and_save_graph_out_dqm(G, pos, dirs, sampleset):
+    plt.cla()
+    nx.draw(G, pos=pos, with_labels=False, node_color=list(sampleset.first.sample.values()), node_size=10, cmap=plt.cm.rainbow)                 
+    plt.savefig(dirs["img_out_dqm"], bbox_inches='tight')
+
+    lut = sampleset.first.sample
+    nx.set_node_attributes(G, lut, name="label1")
+
+    nx.write_gexf(G, dirs["graph_out_dqm"])
 
 def check_embedding_inspector(G, gamma_factor):
     print("starting")
@@ -128,9 +139,9 @@ def check_embedding_inspector(G, gamma_factor):
     response = sampler.sample_qubo(Q, label=name, chain_strength=chain_strength, num_reads=num_reads)    
     dwave.inspector.show(response) # , block='never'
 
-def clustering_recur2(G, iteration, dirs, name, solver, gamma_factor, color, terminate_on, size_limit):
+def clustering_recur2(G, iteration, dirs, solver, gamma_factor, color, terminate_on, size_limit):
 
-    name_spec = ''.join([name, "_", solver]) 
+    name_spec = ''.join([dirs["name"], "_", solver]) 
     
     edges_weights = G.size(weight="weight")
     nodes_len = len(G.nodes)
@@ -259,19 +270,17 @@ def clustering_recur2(G, iteration, dirs, name, solver, gamma_factor, color, ter
 
     return
 
-def clustering_discrete(G):
+def clustering_discrete(G, num_of_clusters, gamma):
     nodes = G.nodes
     edges = G.edges
-    clusters = [0,1,2,3,4]
-
-    gamma = 0.005
+    clusters = [i for i  in range(0, num_of_clusters)]
 
     dqm = dimod.DiscreteQuadraticModel()
     for node in nodes:
-        dqm.add_variable(5, label=node)
+        dqm.add_variable(num_of_clusters, label=node)
     
     for node in nodes:
-        dqm.set_linear(node, [gamma*(1-len(G.nodes)/3) for cluster in clusters])
+        dqm.set_linear(node, [gamma*(1-len(G.nodes)/num_of_clusters) for cluster in clusters])
 
     for i, j in combinations(nodes, 2):
         dqm.set_quadratic(i, j, {(cluster, cluster) : 2*gamma for cluster in clusters})
@@ -296,16 +305,17 @@ n = 128     # size of the graph
 k = 5       # k_nn used for SNN
 ord = 15    # maximum order of node degree when "trimmed" mode is enabled
 dim = 15    # number of dimensions used for SNN
-type = 1    #["_", "_trimmed_", "_negedges_", "_trimmed_negedges_"], where "_" -> unaltered SNN output
-color = 0   # initial value of clusters coloring
-gamma_factor = 0.1                 # gamma_factor, weights the clusters' sizes constraint
-custom = ""    # additional metadata for file names
-terminate_on = "min_size"          # other options: "conf", "min_size"
-size_limit = 15
+g_type = 1    #["_", "_trimmed_", "_negedges_", "_trimmed_negedges_"], where "_" -> unaltered SNN output
+color = 0   # initial value of clusters coloring fro bqm
+gamma_factor = 0.05         # to be used with dqm, weights the clusters' sizes constraint
+gamma = 0.005               # to be used with bqm
+custom = "_14_03_v5"        # additional metadata for file names
+terminate_on = "min_size"   # other options: "conf", "min_size"
+size_limit = 10             # may be used in both bqm and dqm // to finish
+num_of_clusters = 5         # may be used in both bqm and dqm // to finish
 
 # definition of files locations
-dirs = define_dirs(n, k, dim, ord, 0.01, custom, type)
-name = dirs["name"]
+dirs = define_dirs(n, k, dim, ord, gamma, gamma_factor, custom, g_type)
 
 G, pos = create_graph(dirs) # create input graph from .gexf file
 # G, pos = create_graph_csv(dirs) # create input graph from .csv file
@@ -313,18 +323,13 @@ G, pos = create_graph(dirs) # create input graph from .gexf file
 plot_and_save_graph_in(G, pos, dirs)
 
 #  --------- clustering with discrete variables -----------
-# sampleset = clustering_discrete(G)       
-# plt.cla()
-# nx.draw(G, pos=pos, with_labels=False, node_color=list(sampleset.first.sample.values()), node_size=10, cmap=plt.cm.rainbow)                 
-# plt.savefig(dirs["img_out"], bbox_inches='tight')
+sampleset = clustering_discrete(G, num_of_clusters, gamma)       
+plot_and_save_graph_out_dqm(G, pos, dirs, sampleset)
 
 #  --------- clustering recursively with binary variables -----------
-iteration = 1
-clustering_recur2(G, iteration, dirs, name, solver, gamma_factor, color, terminate_on, size_limit)
-plot_and_save_graph_out(G, pos, dirs)
-
-
-nx.write_gexf(G, dirs["graph_to_compare"])
+# iteration = 1
+# clustering_recur2(G, iteration, dirs, solver, gamma_factor, color, terminate_on, size_limit)
+# plot_and_save_graph_out_recur2(G, pos, dirs)
 
 #  --------- check graph embedding in the inspector -----------
 # check_embedding_inspector(G, gamma_factor)
