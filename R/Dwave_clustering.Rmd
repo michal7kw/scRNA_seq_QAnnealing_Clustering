@@ -1,6 +1,7 @@
 ---
 title: "R Notebook"
 output:
+  pdf_document: default
   html_document:
     df_print: paged
 ---
@@ -23,30 +24,21 @@ library(glmGamPoi)
 
 # Evaluation of clustering on QA
 
-## subsetting and preprocessing
+## Generate input data for QA
 ### subsetting
 ```{r}
 pbmc3k <- readRDS(file = "data/pbmc_data/pbmc3k/pbmc3k_init.rds")
 pbmc3k[["percent.mt"]] <- PercentageFeatureSet(pbmc3k, pattern = "^MT-")
 pbmc3k <- subset(pbmc3k, subset = nFeature_RNA > 200 & nFeature_RNA < 2500 & percent.mt < 5)
-VlnPlot(pbmc3k, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
-
-plot1 <- FeatureScatter(pbmc3k, feature1 = "nCount_RNA", feature2 = "percent.mt")
-plot2 <- FeatureScatter(pbmc3k, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
-plot1 + plot2
 
 # pbmc3k_QA <- pbmc3k
+pbmc3k_QA <- pbmc3k[,1:1024]
 # pbmc3k_QA <- pbmc3k[,1:512]
 # pbmc3k_QA <- pbmc3k[,1:256]
-pbmc3k_QA <- pbmc3k[,1:128]
-```
+# pbmc3k_QA <- pbmc3k[,1:128]
 
-```{r}
 pbmc3k_QA <- SCTransform(pbmc3k_QA, method = "glmGamPoi", vars.to.regress = "percent.mt", verbose = FALSE)
-
 pbmc3k_QA <- RunPCA(pbmc3k_QA, features = VariableFeatures(object = pbmc3k_QA))
-ElbowPlot(pbmc3k_QA)
-DimPlot(pbmc3k_QA, reduction = "pca")
 ```
 
 ### Neighbours evaluation, SNN
@@ -58,55 +50,24 @@ type = c("_", "_trimmed_", "_negedges_", "_trimmed_negedges_")
 id_type = 2
 dim = 15
 k = 5
-coff = 1/15
-ord = 8
+coff = 0 #1/15
+ord = 5
 
 pbmc3k_QA <- FindNeighbors(pbmc3k_QA, reduction = "pca", dims = 1:dim, k.param=k, prune.SNN=coff, compute.SNN=TRUE)
 
 pbmc3k_QA_snn <- pbmc3k_QA@graphs[["SCT_snn"]]
-# pbmc3k_QA_knn <- pbmc3k_QA@graphs[["SCT_nn"]]
 
 dim(pbmc3k_QA_snn)
 pbmc3k_QA_snn <- pbmc3k_QA_snn - diag(n)
 
-# head(pbmc3k_QA_snn)
-
-if (id_type==1 || id_type==2){
-  # --- only positive edges ---
-  pbmc3k_QA_snn <- round(pbmc3k_QA_snn, digits=2)
-} else {
-  # --- also negative edges ---
-  pbmc3k_QA_snn <- round(pbmc3k_QA_snn, digits=2)
-  less_than <- pbmc3k_QA_snn < 0.16 & pbmc3k_QA_snn != 0
-  pbmc3k_QA_snn[less_than] <- -0.3
-}
-
-# --- dealing with outliers ---
-# outlier <- colSums(pbmc3k_QA_snn!=0)==0
-# length(outlier)
-# sum(outlier, na.rm = TRUE)
-# 
-# dim(pbmc3k_QA_snn)
-# pbmc3k_QA_snn <- pbmc3k_QA_snn[,!outlier]
-# pbmc3k_QA_snn <- pbmc3k_QA_snn[!outlier,]
-# 
-# refference <- colnames(pbmc3k_QA_snn)
-colSums(pbmc3k_QA_snn != 0)
-# rowSums(pbmc3k_QA_snn != 0)
-```
-
-### trimming
-```{r}
 for (i in 1:n){
   to_delete <- order(pbmc3k_QA_snn[,i], decreasing = TRUE)[seq(ord+1,n,1)]
   pbmc3k_QA_snn[,i][to_delete] <- integer(n-ord)
   pbmc3k_QA_snn[i,][to_delete] <- integer(n-ord)
 }
-colSums(pbmc3k_QA_snn != 0)
-rowSums(pbmc3k_QA_snn != 0)
 ```
 
-### Plotting
+### Plot and save graphs 
 ```{r setup}
 library(reticulate)
 virtualenv_create("scrna_proj")
@@ -124,7 +85,6 @@ n = int(r.n)
 k = int(r.k)
 ord = int(r.ord)
 dim = int(r.dim)
-
 
 file_name = ''.join(["./graphs/", str(n), "_graph_snn", "_k", str(k), "_dim", str(dim), type[id_type], str(ord), ".gexf"])
 
@@ -145,63 +105,24 @@ plt.savefig(file_name, bbox_inches='tight')
 ```
 
 
-## Comparing clusters
 
-### importing generated QA clusters
+
+## Compare clusters
+
+### Import QA clusters
 
 ```{python}
 import networkx as nx
-# QA_output_name = "final_graph_snn (2).gexf"
-# QA_output_name = "128_graph_snn_k5_dim15_15.gexf"
-QA_output_name = "128_graph_snn_k5_dim15_g0_trimmed_15clean_out.gexf"
+QA_output_name = "1024_graph_snn_k5_dim15_gf0.05_trimmed_5_out.gexf"
+
 QA_clusters = nx.read_gexf(''.join(["./dataIn/", QA_output_name]))
-
-x, y = list(QA_clusters.nodes(data=True))[1]
-last = sorted(y.keys())[-1]
-y[last] # return value of the last cluster
-
-# sorted(QA_clusters.nodes(data=True))
-
-QA_clusters_ord = nx.convert_node_labels_to_integers(QA_clusters, first_label=1)
-# sorted(QA_clusters_ord.nodes)
-len(QA_clusters_ord.nodes)
+colors = [y[sorted(y.keys())[-1]] for x,y in sorted(QA_clusters.nodes(data=True))]
 ```
-
-```{python}
-# print(QA_clusters.nodes(data=True))
-colors = [y[sorted(y.keys())[-1]] for x,y in sorted(QA_clusters_ord.nodes(data=True))]
-# colors
-len(colors)
-```
-
-### Preparation of subset
-```{r}
-pbmc3k <- readRDS(file = "data/pbmc_data/pbmc3k/pbmc3k_init.rds")
-pbmc3k[["percent.mt"]] <- PercentageFeatureSet(pbmc3k, pattern = "^MT-")
-pbmc3k <- subset(pbmc3k, subset = nFeature_RNA > 200 & nFeature_RNA < 2500 & percent.mt < 5)
-
-# pbmc3k_QA <- pbmc3k
-# pbmc3k_QA <- pbmc3k[,1:512]
-# pbmc3k_QA <- pbmc3k[,1:256]
-pbmc3k_QA <- pbmc3k[,1:128]
-```
-
-```{r}
-pbmc3k_QA <- SCTransform(pbmc3k_QA, method = "glmGamPoi", vars.to.regress = "percent.mt", verbose = FALSE)
-
-pbmc3k_QA <- RunPCA(pbmc3k_QA, features = VariableFeatures(object = pbmc3k_QA))
-ElbowPlot(pbmc3k_QA)
-DimPlot(pbmc3k_QA, reduction = "pca")
-pbmc3k_QA <- FindNeighbors(pbmc3k_QA, reduction = "pca")
-```
-
-### Merging of MetaData
+### Merge MetaData
 ```{r}
 colors = py$colors
+colors = unlist(colors)
 pbmc3k_QA <- AddMetaData(pbmc3k_QA, metadata=colors, col.name="QA")
-```
-
-```{r}
 DimPlot(pbmc3k_QA, reduction = "pca", group.by="QA")
 ```
 
@@ -209,11 +130,11 @@ DimPlot(pbmc3k_QA, reduction = "pca", group.by="QA")
 pbmc3k_QA <- FindClusters(pbmc3k_QA, verbose = FALSE, resolution = 0.8, algorithm = 1)
 pbmc3k_QA <- RunUMAP(pbmc3k_QA, dim=1:15)
 
-png(file="./output/2_128_clusters_QA.png")
+png(file="./output/clusters_QA.png")
 DimPlot(pbmc3k_QA, reduction = "umap", group.by="QA") # + NoLegend()
 dev.off()
 
-png(file="./output/2_128_clusters_Clasic.png")
+png(file="./output/clusters_Clasic.png")
 DimPlot(pbmc3k_QA, reduction = "umap", group.by="seurat_clusters") # + NoLegend()
 dev.off()
 
@@ -221,7 +142,7 @@ DimPlot(pbmc3k_QA, reduction = "umap", group.by="QA") # + NoLegend()
 DimPlot(pbmc3k_QA, reduction = "umap", group.by="seurat_clusters") # + NoLegend()
 ```
 
-### Look for the Marker genes
+### Look for the marker genes
 ```{r}
 Idents(pbmc3k_QA) <- pbmc3k_QA$seurat_clusters
 
@@ -256,26 +177,20 @@ dev.off()
 FeaturePlot(pbmc3k_QA, features = c(QA_pbmc3k_QA_top_2$gene)) + ggtitle("QA_markers")
 ```
 
-### annotation
+### Annotate
 ```{r}
 library(SingleR)
 monaco.ref<- celldex::MonacoImmuneData()
 sce <- as.SingleCellExperiment(DietSeurat(pbmc3k_QA))
 
 monaco.main_log <- SingleR(test = sce,assay.type.test = 1,ref = monaco.ref,labels = monaco.ref$label.main)
-
 monaco.fine_log <- SingleR(test = sce,assay.type.test = 1,ref = monaco.ref,labels = monaco.ref$label.fine)
 ```
 
 ```{r}
 table(monaco.main_log$pruned.labels)
-```
-
-```{r}
 table(monaco.fine_log$pruned.labels)
-```
 
-```{r}
 pbmc3k_QA@meta.data$monaco.main <- monaco.main_log$pruned.labels
 pbmc3k_QA@meta.data$monaco.fine <- monaco.fine_log$pruned.labels
 ```
@@ -289,3 +204,141 @@ dev.off()
 
 DimPlot(pbmc3k_QA, label = T , repel = T, label.size = 8) + NoLegend() + ggtitle("pbmc3k_QA_cell_type")
 ```
+
+```{r}
+pbmc3k_QA <- SetIdent(pbmc3k_QA, value = "monaco.fine")
+
+png(file="./output/pbmc3k_QA_cell_types.png", width = 820, height = 480)
+DimPlot(pbmc3k_QA, label = F , repel = T, label.size = 4)  + ggtitle("pbmc3k_QA_cell_type")
+dev.off()
+
+DimPlot(pbmc3k_QA, label = F , repel = T, label.size = 4) + ggtitle("pbmc3k_QA_cell_type")
+```
+
+
+# Data Sampling and Pruning
+## Import graph subsampling
+```{python}
+# IMPORT GRAPH SUBSAMPLING (indicated by attribute "label1" : 1)
+import networkx as nx
+QA_output_name = "1024_pru_graph_snn_k5_dim15_trimmed_5.gexf"
+
+QA_prune = nx.read_gexf(''.join(["./dataIn/", QA_output_name]))
+```
+
+```{python}
+# GET THE PRUNED NODES
+pruned = [y[sorted(y.keys())[-1]] for x,y in sorted(QA_prune.nodes(data=True))]
+```
+
+## Merge MetaData
+```{r}
+pruned = py$pruned
+pruned = unlist(pruned)
+pbmc3k_QA <- AddMetaData(pbmc3k_QA, metadata=pruned, col.name="QA_pruning")
+```
+
+```{r}
+pbmc3k_QA <- RunUMAP(pbmc3k_QA, dim=1:15)
+DimPlot(pbmc3k_QA, reduction = "umap", group.by="QA_pruning")
+```
+
+
+## Created Pruned Graph
+```{r}
+pbmc3k <- readRDS(file = "data/pbmc_data/pbmc3k/pbmc3k_init.rds")
+pbmc3k[["percent.mt"]] <- PercentageFeatureSet(pbmc3k, pattern = "^MT-")
+pbmc3k <- subset(pbmc3k, subset = nFeature_RNA > 200 & nFeature_RNA < 2500 & percent.mt < 5)
+
+# PRUNIGN THE GRAPH
+# pbmc3k_QA <- pbmc3k
+pbmc3k_QA <- pbmc3k[,1:1024]
+pbmc3k_QA_pruned <- pbmc3k_QA[,!!pruned]
+
+pbmc3k_QA <- SCTransform(pbmc3k_QA, method = "glmGamPoi", vars.to.regress = "percent.mt", verbose = FALSE)
+pbmc3k_QA <- RunPCA(pbmc3k_QA, features = VariableFeatures(object = pbmc3k_QA))
+
+pbmc3k_QA_pruned <- SCTransform(pbmc3k_QA_pruned, method = "glmGamPoi", vars.to.regress = "percent.mt", verbose = FALSE)
+pbmc3k_QA_pruned <- RunPCA(pbmc3k_QA_pruned, features = VariableFeatures(object = pbmc3k_QA_pruned))
+
+n = ncol(pbmc3k_QA_pruned)
+dim(pbmc3k_QA_pruned)
+
+type = c("_", "_trimmed_", "_negedges_", "_trimmed_negedges_")
+id_type = 2
+dim = 15
+k = 5
+coff = 0 #1/15
+ord = 5
+
+pbmc3k_QA_pruned <- FindNeighbors(pbmc3k_QA_pruned, reduction = "pca", dims = 1:dim, k.param=k, prune.SNN=coff, compute.SNN=TRUE)
+
+pbmc3k_QA_snn <- pbmc3k_QA_pruned@graphs[["SCT_snn"]]
+
+dim(pbmc3k_QA_snn)
+pbmc3k_QA_snn <- pbmc3k_QA_snn - diag(n)
+
+for (i in 1:n){
+  to_delete <- order(pbmc3k_QA_snn[,i], decreasing = TRUE)[seq(ord+1,n,1)]
+  pbmc3k_QA_snn[,i][to_delete] <- integer(n-ord)
+  pbmc3k_QA_snn[i,][to_delete] <- integer(n-ord)
+}
+
+pbmc3k_QA_snn <- round(pbmc3k_QA_snn, digits=2)
+```
+
+```{python}
+import numpy as np
+import networkx as nx
+from matplotlib import pyplot as plt
+
+id_type, type = int(r.id_type)-1, r.type
+n = int(r.n)
+k = int(r.k)
+ord = int(r.ord)
+dim = int(r.dim)
+
+file_name = ''.join(["./graphs/", str(n), "pru_graph_snn", "_k", str(k), "_dim", str(dim), type[id_type], str(ord), ".gexf"])
+
+G = nx.from_numpy_matrix(r.pbmc3k_QA_snn)
+nx.write_gexf(G, file_name)
+
+G = nx.read_gexf(file_name)
+pos = nx.spring_layout(G)
+plt.cla()
+nx.draw_networkx_nodes(G, pos, node_size=10, nodelist=G.nodes)
+nx.draw_networkx_edges(G, pos, edgelist=G.edges, style='solid', alpha=0.5, width=1)
+
+file_name = ''.join(["./graphs/", str(n), "pru_graph_snn", "_k", str(k), "_dim", str(dim), type[id_type], str(ord), ".png"])
+plt.savefig(file_name, bbox_inches='tight')
+```
+
+## Get clusters (of the pruned graph) back from QA
+```{python}
+name_pruned_clustered = "1024_dqm_graph_snn_k5_dim15_g0005_trimmed_5.gexf"
+QA_pruned_clustered = nx.read_gexf(''.join(["./dataIn/", name_pruned_clustered]))
+
+colors2 = [y[sorted(y.keys())[-1]] for x,y in QA_pruned_clustered.nodes(data=True)]
+```
+
+```{r}
+colors2 = py$colors2
+colors2 = unlist(colors2)
+leng = dim(GetAssayData(pbmc3k_QA))[2]
+colors_vec <- integer(leng)
+colors_vec[!!pruned] <- colors2+2
+pbmc3k_QA <- AddMetaData(pbmc3k_QA, metadata=colors_vec, col.name="QA_pruning_clusters")
+pbmc3k_QA_pruned <- AddMetaData(pbmc3k_QA_pruned, metadata=colors2, col.name="QA_pruning_clusters")
+```
+
+```{r}
+pbmc3k_QA_pruned <- RunUMAP(pbmc3k_QA_pruned, dim=1:15)
+DimPlot(pbmc3k_QA_pruned, reduction = "umap", group.by="QA_pruning_clusters", label = TRUE)
+```
+
+```{r}
+pbmc3k_QA <- RunUMAP(pbmc3k_QA, dim=1:15)
+DimPlot(pbmc3k_QA, cells=!!pruned, reduction = "umap", group.by="QA_pruning_clusters", label = TRUE)
+```
+
+
