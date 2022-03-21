@@ -40,6 +40,7 @@ def define_dirs(n, k, dim, ord, g, gf, custom,type):
         
         "graph_out_bqm"     : ''.join(["./DatasetsOut/" , str(n), "_graph_snn"     , "_k", str(k), "_dim", str(dim), "_gf", str(gf), type_names[type], str(ord), custom, "_out.gexf"   ]),
         "graph_out_dqm"     : ''.join(["./DatasetsOut/" , str(n), "_dqm_graph_snn" , "_k", str(k), "_dim", str(dim), "_g", str(g)  , type_names[type], str(ord), custom, ".gexf"       ]),
+        "graph_out_cqm"     : ''.join(["./DatasetsOut/" , str(n), "_cqm_graph_snn" , "_k", str(k), "_dim", str(dim), "_g", str(g)  , type_names[type], str(ord), custom, ".gexf"       ]),
         "graph_out_pru1"    : ''.join(["./DatasetsOut/" , str(n), "_pru_graph_snn" , "_k", str(k), "_dim", str(dim),                 type_names[type], str(ord), custom, ".gexf"       ]),
         "graph_out_pru2"    : ''.join(["./DatasetsOut/" , str(n), "_pru_graph_snn" , "_k", str(k), "_dim", str(dim),                 type_names[type], str(ord), custom, "2.gexf"      ]),
 
@@ -109,18 +110,24 @@ def plot_and_save_graph_out_dqm(G, pos, dirs, sampleset):
 
     nx.write_gexf(G, dirs["graph_out_dqm"])
 
-def plot_and_save_graph_out_cqm(G, pos, dirs, sampleset, num_of_clusters):
-    sample = sampleset.first.sample
+def plot_and_save_graph_out_cqm(G, pos, dirs, sampleset_cqm, num_of_clusters):
+    sample = sampleset_cqm.first.sample
 
     clusters = [-1]*G.number_of_nodes()
+    labels = defaultdict(int)
+
     for node in G.nodes:
         for p in range(num_of_clusters):
             if sample[f'v_{int(node)},{p}'] == 1:
                 clusters[int(node)] = p
+                labels[node] = p
 
     plt.cla()
     nx.draw(G, pos=pos, with_labels=False, node_color=clusters, node_size=10, cmap=plt.cm.rainbow)                 
     plt.savefig(dirs["img_out_cqm"], bbox_inches='tight')
+
+    nx.set_node_attributes(G, labels, name="label1")
+    nx.write_gexf(G, dirs["graph_out_cqm"])
 
 def plot_and_save_graph_out_mvc(G, pos, dirs):
     included_edges = [(u, v) for u, v in G.edges if (G.nodes[u]["label1"]==1 or G.nodes[v]["label1"]==1)]
@@ -467,7 +474,7 @@ solvers = {
 }
 solver = solvers["fe"] # type of used solver
 
-n = 128     # size of the graph
+n = 512     # size of the graph
 k = 5       # k_nn used for SNN
 ord = 15    # maximum order of node degree when "trimmed" mode is enabled
 dim = 15    # number of dimensions used for SNN
