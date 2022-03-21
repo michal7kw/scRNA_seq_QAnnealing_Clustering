@@ -18,9 +18,8 @@ import dwavebinarycsp
 import dwave.inspector
 from minorminer import find_embedding
 from dwave.embedding import embed_ising
-from dwave.system import LeapHybridSampler
-from dwave.system import LeapHybridDQMSampler
 from dwave.system.samplers import DWaveSampler
+from dwave.system import LeapHybridSampler, LeapHybridDQMSampler, LeapHybridCQMSampler
 from dwave.system.composites import EmbeddingComposite, LazyFixedEmbeddingComposite, FixedEmbeddingComposite
 from dwave.cloud.client import Client
 
@@ -47,6 +46,7 @@ def define_dirs(n, k, dim, ord, g, gf, custom,type):
         "img_in"            : ''.join(["./PlotsIn/"     , str(n), "_graph_snn"     , "_k", str(k), "_dim", str(dim),                 type_names[type], str(ord), custom, ".png"        ]),
         "img_out_bqm"       : ''.join(["./PlotsOut/"    , str(n), "_bqm_graph_snn" , "_k", str(k), "_dim", str(dim), "_gf", str(gf), type_names[type], str(ord), custom, "_out.png"    ]),
         "img_out_dqm"       : ''.join(["./PlotsOut/"    , str(n), "_dqm_graph_snn" , "_k", str(k), "_dim", str(dim), "_g", str(g)  , type_names[type], str(ord), custom, "_out.png"    ]),
+        "img_out_cqm"       : ''.join(["./PlotsOut/"    , str(n), "_cqm_graph_snn" , "_k", str(k), "_dim", str(dim), "_g", str(g)  , type_names[type], str(ord), custom, "_out.png"    ]),
         "img_out_p1"        : ''.join(["./PlotsOut/"    , str(n), "_pru_graph_snn" , "_k", str(k), "_dim", str(dim),                 type_names[type], str(ord), custom, "_out1.png"   ]),
         "img_out_p2"        : ''.join(["./PlotsOut/"    , str(n), "_pru_graph_snn" , "_k", str(k), "_dim", str(dim),                 type_names[type], str(ord), custom, "_out2.png"   ]),
         "img_out_p3"        : ''.join(["./PlotsOut/"    , str(n), "_pru_graph_snn" , "_k", str(k), "_dim", str(dim),                 type_names[type], str(ord), custom, "_out3.png"   ]),
@@ -108,6 +108,19 @@ def plot_and_save_graph_out_dqm(G, pos, dirs, sampleset):
     nx.set_node_attributes(G, lut, name="label1")
 
     nx.write_gexf(G, dirs["graph_out_dqm"])
+
+def plot_and_save_graph_out_cqm(G, pos, dirs, sampleset, num_of_clusters):
+    sample = sampleset.first.sample
+
+    clusters = [-1]*G.number_of_nodes()
+    for node in G.nodes:
+        for p in range(num_of_clusters):
+            if sample[f'v_{int(node)},{p}'] == 1:
+                clusters[int(node)] = p
+
+    plt.cla()
+    nx.draw(G, pos=pos, with_labels=False, node_color=clusters, node_size=10, cmap=plt.cm.rainbow)                 
+    plt.savefig(dirs["img_out_cqm"], bbox_inches='tight')
 
 def plot_and_save_graph_out_mvc(G, pos, dirs):
     included_edges = [(u, v) for u, v in G.edges if (G.nodes[u]["label1"]==1 or G.nodes[v]["label1"]==1)]
@@ -317,12 +330,45 @@ def clustering_dqm(G, num_of_clusters, gamma):
     for i, j in combinations(nodes, 2):
         dqm.set_quadratic(i, j, {(cluster, cluster) : 2*gamma for cluster in clusters})
 
+    # ? wrong: add_quadratic instead of set_quadratic
     for u, v in edges:
         dqm.set_quadratic(u, v, {(cluster, cluster) : -2*G.get_edge_data(u, v)["weight"] for cluster in clusters})
         dqm.set_linear(u, [G.get_edge_data(u, v)["weight"] for cluster in clusters])
         dqm.set_linear(v, [G.get_edge_data(u, v)["weight"] for cluster in clusters])
 
     sampleset = LeapHybridDQMSampler().sample_dqm(dqm, label='DQM - scRAN-seq') 
+    print("Energy: {}\nSolution: {}".format(sampleset.first.energy, sampleset.first.sample)) 
+    return sampleset
+
+def clustering_cqm(G, num_of_clusters):
+    nodes = G.nodes
+    edges = G.edges
+    clusters = range(num_of_clusters)
+
+    cqm = dimod.ConstrainedQuadraticModel()
+
+    print("\nAdding variables....")
+    v = [[dimod.Binary(f'v_{i},{k}') for k in clusters] for i in nodes]
+
+    print("\nAdding one-hot constraints...")
+    for i in nodes:
+        cqm.add_discrete([f'v_{i},{k}' for k in clusters], label=f"one-hot-node-{i}")
+
+    print("\nAdding objective...")
+    min_edges = []
+    for i,j in edges:
+        for p in clusters:
+            min_edges.append(v[int(i)][p]+v[int(j)][p] - 2*G.get_edge_data(i, j)["weight"]*v[int(i)][p]*v[int(j)][p])
+    cqm.set_objective(sum(min_edges))
+
+    print("\nAdding partition size constraint...")
+    for j in clusters:
+        cqm.add_constraint(sum(v[int(i)][j] for i in nodes) >= 20, label=f'cluster_size{j}')
+
+    print("\nSending to the solver...")
+
+    sampler = LeapHybridCQMSampler()
+    sampleset = sampler.sample_cqm(cqm, label='CQM - scRAN-seq')
     print("Energy: {}\nSolution: {}".format(sampleset.first.energy, sampleset.first.sample)) 
     return sampleset
 
@@ -421,15 +467,15 @@ solvers = {
 }
 solver = solvers["fe"] # type of used solver
 
-n = 1024     # size of the graph
+n = 128     # size of the graph
 k = 5       # k_nn used for SNN
-ord = 5    # maximum order of node degree when "trimmed" mode is enabled
+ord = 15    # maximum order of node degree when "trimmed" mode is enabled
 dim = 15    # number of dimensions used for SNN
-g_type = 1    #["_", "_trimmed_", "_negedges_", "_trimmed_negedges_"], where "_" -> unaltered SNN output
+g_type = 1  # ["_", "_trimmed_", "_negedges_", "_trimmed_negedges_"], where "_" -> unaltered SNN output
 color = 0   # initial value of clusters coloring fro bqm
 gamma_factor = 0.05         # to be used with dqm, weights the clusters' sizes constraint
 gamma = 0.005               # to be used with bqm
-custom = ""        # additional metadata for file names
+custom = ""                 # additional metadata for file names
 terminate_on = "min_size"   # other options: "conf", "min_size"
 size_limit = 10             # may be used in both bqm and dqm // to finish
 num_of_clusters = 5         # may be used in both bqm and dqm // to finish
@@ -437,34 +483,39 @@ num_of_clusters = 5         # may be used in both bqm and dqm // to finish
 # define local directories
 dirs = define_dirs(n, k, dim, ord, gamma, gamma_factor, custom, g_type)
 
+# --------- import graph ---------
+G, pos = create_graph(dirs["graph_in"])
+plot_and_save_graph_in(G, pos, dirs)
+
 
 # --------- import pruned and pre-processed graph --------- pre-processing is done in R notebook
 G, pos = create_graph("./DatasetsIn/239pru_graph_snn_k5_dim15_trimmed_5.gexf")
-plot_and_save_graph_in(G, pos, dirs)
-sampleset = clustering_dqm(G, num_of_clusters, gamma)       
-plot_and_save_graph_out_dqm(G, pos, dirs, sampleset)
+plot_and_save_graph_in(G, pos, dirs)     
 
 
 # --------- subsample graph ---------
-G, pos = create_graph(dirs["graph_in"])
 response = graph_subsampling(G, 3200)
 plot_and_save_graph_out_mvc(G, pos, dirs)
 H = prune_graph(G, pos, dirs)
 
 
-#  --------- clustering with discrete variables -----------
-sampleset = clustering_dqm(G, num_of_clusters, gamma)       
-plot_and_save_graph_out_dqm(G, pos, dirs, sampleset)
+# --------- DQM -----------
+sampleset_dqm = clustering_dqm(G, num_of_clusters, gamma)       
+plot_and_save_graph_out_dqm(G, pos, dirs, sampleset_dqm)
 
+
+# --------- CQM ---------
+sampleset_cqm = clustering_cqm(G, num_of_clusters)
+plot_and_save_graph_out_cqm(G, pos, dirs, sampleset_cqm, num_of_clusters)
 
 #  --------- clustering recursively with binary variables -----------
-# iteration = 1
-# clustering_bqm(G, iteration, dirs, solver, gamma_factor, color, terminate_on, size_limit)
-# plot_and_save_graph_out_bqm(G, pos, dirs)
+iteration = 1
+clustering_bqm(G, iteration, dirs, solver, gamma_factor, color, terminate_on, size_limit)
+plot_and_save_graph_out_bqm(G, pos, dirs)
 
 
 #  --------- Check graph embedding in the inspector -----------
-# check_embedding_inspector(G, gamma_factor)
+check_embedding_inspector(G, gamma_factor)
 
 
 #  --------- Retrive response -----------
