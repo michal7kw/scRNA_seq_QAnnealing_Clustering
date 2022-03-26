@@ -14,10 +14,11 @@ matplotlib.use("agg")
 from matplotlib import pyplot as plt
 
 import dimod
-import dwavebinarycsp
+# import dwavebinarycsp
 import dwave.inspector
-from minorminer import find_embedding
-from dwave.embedding import embed_ising
+import dwave_networkx as dnx
+# from minorminer import find_embedding
+# from dwave.embedding import embed_ising
 from dwave.system.samplers import DWaveSampler
 from dwave.system import LeapHybridSampler, LeapHybridDQMSampler, LeapHybridCQMSampler
 from dwave.system.composites import EmbeddingComposite, LazyFixedEmbeddingComposite, FixedEmbeddingComposite
@@ -30,6 +31,7 @@ def define_dirs(n, k, dim, ord, g, gf, custom,type):
     # n-size, k-k_nn, dim-dimensions, ord-max_degree, g-gamma, custom-for one's needs, type-type of graph
     type_names = ["_", "_trimmed_", "_negedges_", "_trimmed_negedges_"]
     g = str(g).replace( ".", "")
+    gf = str(gf).replace( ".", "")
 
     dirs = {
         "name"              : ''.join([                   str(n), "_graph_snn"     , "_k", str(k), "_dim", str(dim),                 type_names[type], str(ord)]                       ),
@@ -139,15 +141,15 @@ def plot_and_save_graph_out_mvc(G, pos, dirs):
     labels = dict(labels)
 
     plt.cla()
-    nx.draw_networkx_nodes(G, pos, node_size=10, nodelist=G.nodes, node_color=colors)
-    nx.draw_networkx_labels(G, pos, labels=labels, font_size=12)
+    nx.draw_networkx_nodes(G, pos, node_size=5, nodelist=G.nodes, node_color=colors)
+    nx.draw_networkx_labels(G, pos, labels=labels, font_size=5, font_color='r')
     nx.draw_networkx_edges(G, pos, edgelist=excluded_edges, style='dashdot', alpha=0.5, width=0.5)
     nx.draw_networkx_edges(G, pos, edgelist=included_edges, style='solid', width=1)
 
     plt.savefig(dirs["img_out_p1"], bbox_inches='tight')
 
     nx.write_gexf(G, dirs["graph_out_pru1"])
-
+    
 def check_embedding_inspector(G, gamma_factor):
     print("starting")
     name = "for_inspection"
@@ -216,8 +218,8 @@ def clustering_bqm(G, iteration, dirs, solver, gamma_factor, color, terminate_on
     # --------------
     print("... Running on QPU ...")
     
-    num_reads = 1000
-    chain_strength = 4
+    num_reads = 500
+    chain_strength = 20
 
     if solver == "hybrid":
         sampler = LeapHybridSampler()
@@ -236,12 +238,14 @@ def clustering_bqm(G, iteration, dirs, solver, gamma_factor, color, terminate_on
         except IOError:
             save = True
             print("generate new embedding")
-            sampler = LazyFixedEmbeddingComposite(DWaveSampler(solver='Advantage_system4.1'))
+            # sampler = LazyFixedEmbeddingComposite(DWaveSampler(solver='Advantage_system4.1'))
+            sampler = EmbeddingComposite(DWaveSampler(solver='Advantage_system4.1'))
 
-        response = sampler.sample_qubo(Q, label=name_spec, chain_strength=chain_strength, num_reads=num_reads)    
+        response = sampler.sample_qubo(Q, label=name_spec, chain_strength=chain_strength, num_reads=num_reads, return_embedding=True)    
         
         if save:
-            embedding = sampler.properties['embedding']
+            # embedding = sampler.properties['embedding']
+            embedding = response.info['embedding_context']['embedding']
             a_file = open(dirs["embedding"], "w")
             json.dump(embedding, a_file)
             a_file.close()   
@@ -262,14 +266,6 @@ def clustering_bqm(G, iteration, dirs, solver, gamma_factor, color, terminate_on
 
         print('{:>15s}{:>15s}{:^15s}{:^15s}'.format(str(S0),str(S1),str(E),str(occur)))
         
-        # to-do
-        if terminate_on == "conf":
-            if i==0:
-                size1 = occur
-            elif i==1:
-                size2 = occur
-            elif i==2:
-                size3 = occur 
         if (i > 3):
             break
         i = i + 1
@@ -304,13 +300,27 @@ def clustering_bqm(G, iteration, dirs, solver, gamma_factor, color, terminate_on
             clustering_bqm(G.subgraph(S1), iteration+1, dirs, solver, gamma_factor, color+20, terminate_on, size_limit)
     #to-do
     elif terminate_on == "conf":
-        print("size1", size1)
-        print("size2", size2)
-        print("size3", size3)
-        confidence = size1/size3
-        if confidence > 2 and min(len(S0), len(S1)) > 5:
+        print("energies", response.record.energy[:10])
+        if response.record.energy[3]>0.1: # this is to avoid dicivion by 0
+            ratio = response.record.energy[0]/response.record.energy[3]
+        difference = np.abs(response.record.energy[0]-response.record.energy[3])
+        print("ratio:", ratio)
+        print("difference:", difference)
+        if difference > 10 and min(len(S0), len(S1)) > 5:
+            # Assign nodes' labels
+            col = random.randint(0, 100)
+            for i in S0:
+                # G.nodes(data=True)[i][label] = 100 - color
+                G.nodes(data=True)[i][label] = col
+            
+            col = random.randint(120, 220)    
+            for i in S1:
+                # G.nodes(data=True)[i][label] = color - 100
+                G.nodes(data=True)[i][label] = col
+
             clustering_bqm(G.subgraph(S0), iteration+1, dirs, solver, gamma_factor, color+20, terminate_on, size_limit)
             clustering_bqm(G.subgraph(S1), iteration+1, dirs, solver, gamma_factor, color+20, terminate_on, size_limit)
+
     elif terminate_on == "once":
         col = random.randint(0, 100)
         for i in S0:
@@ -380,14 +390,15 @@ def clustering_cqm(G, num_of_clusters):
     return sampleset
 
 def graph_subsampling(G, gamma):
-    P = 1 * len(G.nodes)
+    # P = 1 * len(G.nodes)
+    P = 1
     # Initialize our Q matrix
     Q = defaultdict(int)
     # Fill in Q matrix
     for u, v in G.edges:
         Q[(u,u)] += -P*(1- G.get_edge_data(u, v)["weight"])
         Q[(v,v)] += -P*(1- G.get_edge_data(u, v)["weight"])
-        Q[(u,v)] += P*(1- G.get_edge_data(u, v)["weight"])
+        Q[(u,v)] +=  P*(1- G.get_edge_data(u, v)["weight"])
     for i in G.nodes:
         Q[(i,i)] += gamma
 
@@ -449,6 +460,25 @@ def graph_subsampling(G, gamma):
     
     return response
 
+def graph_subsampling_2(G, gamma):
+    sampler = EmbeddingComposite(DWaveSampler())
+    S = dnx.maximum_independent_set(G, sampler=sampler, num_reads=10, label='graph_subsampling_2')
+    
+    # Visualize the results
+    k = G.subgraph(S)
+    notS = list(set(G.nodes()) - set(S))
+    othersubgraph = G.subgraph(notS)
+    pos = nx.spring_layout(G)
+
+    label = "label1"
+    for i in S:
+        G.nodes(data=True)[i][label] = 1
+
+    for i in notS:
+        G.nodes(data=True)[i][label] = 0
+
+    return S, k
+
 def prune_graph(G, pos, dirs):
     prun_nodes = [x for x,y in G.nodes(data=True) if y['label1']==1]
     H = G.subgraph(prun_nodes)
@@ -467,6 +497,142 @@ def retrive_response(problem_id, token):
     sampleset = future.sampleset
     return sampleset
 
+def clustering_bqm_2(G, iteration, dirs, solver, gamma_factor, color, terminate_on, size_limit, k, chain_strength):
+
+    name_spec = ''.join([dirs["name"], "_", solver]) 
+    
+    edges_weights = G.size(weight="weight")
+    nodes_len = len(G.nodes)
+    gamma = gamma_factor * edges_weights/nodes_len
+    print("gamma: ", gamma)
+
+    # Initialize our Q matrix
+    Q = defaultdict(int)
+    # Fill in Q matrix
+    for u, v in G.edges:
+        Q[(u,u)] += k*G.get_edge_data(u, v)["weight"]
+        Q[(v,v)] += k*G.get_edge_data(u, v)["weight"]
+        Q[(u,v)] += k *-2*G.get_edge_data(u, v)["weight"]
+
+    for i in G.nodes:
+        Q[(i,i)] += gamma
+
+    print("... Running on QPU ...")
+    
+    num_reads = 500
+    # chain_strength = 20
+
+    if solver == "hybrid":
+        sampler = LeapHybridSampler()
+        response = sampler.sample_qubo(Q, label=name_spec)
+    elif solver == "fixed_embedding":
+        save = False
+        try:
+            a_file = open(dirs["embedding"])
+            embedding = json.load(a_file)
+            a_file.close()
+
+            sub_embedding = dict((k, embedding[k]) for k in G.nodes if k in embedding)
+            
+            sampler = FixedEmbeddingComposite(DWaveSampler(solver='Advantage_system4.1'), sub_embedding)
+            print("found embedding")
+        except IOError:
+            save = True
+            print("generate new embedding")
+            # sampler = LazyFixedEmbeddingComposite(DWaveSampler(solver='Advantage_system4.1'))
+            sampler = EmbeddingComposite(DWaveSampler(solver='Advantage_system4.1'))
+
+        response = sampler.sample_qubo(Q, label=name_spec, chain_strength=chain_strength, num_reads=num_reads, return_embedding=True)    
+        
+        if save:
+            # embedding = sampler.properties['embedding']
+            embedding = response.info['embedding_context']['embedding']
+            a_file = open(dirs["embedding"], "w")
+            json.dump(embedding, a_file)
+            a_file.close()   
+    elif solver == "embedding_composite":
+        sampler = EmbeddingComposite(DWaveSampler())
+        response = sampler.sample_qubo(Q, label=name_spec, chain_strength=chain_strength, num_reads=num_reads)
+
+    # ------- Print results to user -------
+    print('-' * 60)
+    print('{:>15s}{:>15s}{:^15s}{:^15s}'.format('Set 0','Set 1','Energy','Num. of occurrences'))
+    print('-' * 60)
+
+    i=0
+    for sample, E, occur in response.data(fields=['sample','energy', "num_occurrences"]):
+        # select clusters
+        S0 = [k for k,v in sample.items() if v == 0]
+        S1 = [k for k,v in sample.items() if v == 1]
+
+        print('{:>15s}{:>15s}{:^15s}{:^15s}'.format(str(S0),str(S1),str(E),str(occur)))
+        
+        if (i > 3):
+            break
+        i = i + 1
+
+    
+    label = "label" + str(iteration)
+    lut = response.first.sample
+
+    # Interpret best result in terms of nodes and edges
+    S0 = [node for node in G.nodes if not lut[node]]
+    S1 = [node for node in G.nodes if lut[node]]
+
+    print("S0 length: ", len(S0))
+    print("S1 length: ", len(S1))
+    if terminate_on == "min_size":
+        if(len(S0)>size_limit and len(S1)>size_limit):
+            # Assign nodes' labels
+            col = random.randint(0, 100)
+            for i in S0:
+                # G.nodes(data=True)[i][label] = 100 - color
+                G.nodes(data=True)[i][label] = col
+            
+            col = random.randint(120, 220)    
+            for i in S1:
+                # G.nodes(data=True)[i][label] = color - 100
+                G.nodes(data=True)[i][label] = col
+            # write to the graph file
+            # file_name = "clustring_" + str(iteration) + ".gexf"
+            # nx.write_gexf(G, file_name)
+
+            clustering_bqm_2(G.subgraph(S0), iteration+1, dirs, solver, gamma_factor, color+20, terminate_on, size_limit, k, chain_strength)
+            clustering_bqm_2(G.subgraph(S1), iteration+1, dirs, solver, gamma_factor, color+20, terminate_on, size_limit, k, chain_strength)
+    #to-do
+    elif terminate_on == "conf":
+        print("energies", response.record.energy[:10])
+        # ratio = response.record.energy[0]/response.record.energy[3]
+        difference = np.abs(response.record.energy[0]-response.record.energy[3])
+        # print("ratio:", ratio)
+        print("difference:", difference)
+        if difference > 10 and min(len(S0), len(S1)) > 5:
+            # Assign nodes' labels
+            col = random.randint(0, 100)
+            for i in S0:
+                # G.nodes(data=True)[i][label] = 100 - color
+                G.nodes(data=True)[i][label] = col
+            
+            col = random.randint(120, 220)    
+            for i in S1:
+                # G.nodes(data=True)[i][label] = color - 100
+                G.nodes(data=True)[i][label] = col
+
+            clustering_bqm_2(G.subgraph(S0), iteration+1, dirs, solver, gamma_factor, color+20, terminate_on, size_limit, k, chain_strength)
+            clustering_bqm_2(G.subgraph(S1), iteration+1, dirs, solver, gamma_factor, color+20, terminate_on, size_limit, k, chain_strength)
+
+    elif terminate_on == "once":
+        col = random.randint(0, 100)
+        for i in S0:
+            G.nodes(data=True)[i][label] = col
+        
+        col = random.randint(120, 220)    
+        for i in S1:
+            G.nodes(data=True)[i][label] = col
+        
+        return response
+    return
+
 solvers = {
     "h"     : "hybrid",
     "fe"    : "fixed_embedding",
@@ -474,7 +640,7 @@ solvers = {
 }
 solver = solvers["fe"] # type of used solver
 
-n = 512     # size of the graph
+n = 239    # size of the graph
 k = 5       # k_nn used for SNN
 ord = 15    # maximum order of node degree when "trimmed" mode is enabled
 dim = 15    # number of dimensions used for SNN
@@ -484,8 +650,8 @@ gamma_factor = 0.05         # to be used with dqm, weights the clusters' sizes c
 gamma = 0.005               # to be used with bqm
 custom = ""                 # additional metadata for file names
 terminate_on = "min_size"   # other options: "conf", "min_size"
-size_limit = 10             # may be used in both bqm and dqm // to finish
-num_of_clusters = 5         # may be used in both bqm and dqm // to finish
+size_limit = 30            # may be used in both bqm and dqm // to finish
+num_of_clusters = 9         # may be used in both bqm and dqm // to finish
 
 # define local directories
 dirs = define_dirs(n, k, dim, ord, gamma, gamma_factor, custom, g_type)
@@ -496,12 +662,16 @@ plot_and_save_graph_in(G, pos, dirs)
 
 
 # --------- import pruned and pre-processed graph --------- pre-processing is done in R notebook
-G, pos = create_graph("./DatasetsIn/239pru_graph_snn_k5_dim15_trimmed_5.gexf")
+G, pos = create_graph("./DatasetsIn/239pru_graph_snn_k5_dim15_trimmed_15.gexf")
 plot_and_save_graph_in(G, pos, dirs)     
 
 
 # --------- subsample graph ---------
-response = graph_subsampling(G, 3200)
+G, pos = create_graph("./DatasetsIn/1024_graph_snn_k5_dim15_trimmed_15.gexf")
+plot_and_save_graph_in(G, pos, dirs)   
+# response = graph_subsampling(G, 10)
+S, k = graph_subsampling_2(G, 10)
+# dwave.inspector.show(response)
 plot_and_save_graph_out_mvc(G, pos, dirs)
 H = prune_graph(G, pos, dirs)
 
@@ -515,9 +685,18 @@ plot_and_save_graph_out_dqm(G, pos, dirs, sampleset_dqm)
 sampleset_cqm = clustering_cqm(G, num_of_clusters)
 plot_and_save_graph_out_cqm(G, pos, dirs, sampleset_cqm, num_of_clusters)
 
+
 #  --------- clustering recursively with binary variables -----------
 iteration = 1
 clustering_bqm(G, iteration, dirs, solver, gamma_factor, color, terminate_on, size_limit)
+plot_and_save_graph_out_bqm(G, pos, dirs)
+
+
+#  --------- clustering recursively with binary variables -----------
+G, pos = create_graph(dirs["graph_in"])
+plot_and_save_graph_in(G, pos, dirs)
+iteration = 1
+response = clustering_bqm_2(G, iteration, dirs, solver, gamma_factor, color, terminate_on, size_limit, 1000, 20)
 plot_and_save_graph_out_bqm(G, pos, dirs)
 
 
@@ -526,4 +705,5 @@ check_embedding_inspector(G, gamma_factor)
 
 
 #  --------- Retrive response -----------
-sampleset = retrive_response(problem_id="", token="")
+sampleset = retrive_response(problem_id="6e31fe56-6a41-4db2-86ea-9936415a127b", token="DEV-96c7ac68f866387f382beade0d34ca0640a19935")
+# dwave.inspector.show(sampleset)
