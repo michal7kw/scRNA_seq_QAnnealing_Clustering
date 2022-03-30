@@ -8,17 +8,19 @@ import numpy as np
 import pandas as pd
 import networkx as nx
 from collections import defaultdict
-from itertools import combinations
+from itertools import combinations, count
 import matplotlib
 matplotlib.use("agg")
 from matplotlib import pyplot as plt
 
 import dimod
+import hybrid 
 # import dwavebinarycsp
 import dwave.inspector
 import dwave_networkx as dnx
 # from minorminer import find_embedding
 # from dwave.embedding import embed_ising
+from dimod import BinaryQuadraticModel
 from dwave.system.samplers import DWaveSampler
 from dwave.system import LeapHybridSampler, LeapHybridDQMSampler, LeapHybridCQMSampler
 from dwave.system.composites import EmbeddingComposite, LazyFixedEmbeddingComposite, FixedEmbeddingComposite
@@ -191,7 +193,7 @@ def check_embedding_inspector(G, gamma_factor):
     response = sampler.sample_qubo(Q, label=name, chain_strength=chain_strength, num_reads=num_reads)    
     dwave.inspector.show(response) # , block='never'
 
-def clustering_bqm(G, iteration, dirs, solver, gamma_factor, color, terminate_on, size_limit):
+def clustering_bqm(G, iteration, dirs, solver, gamma_factor, color, terminate_on, size_limit, iter_limit):
 
     name_spec = ''.join([dirs["name"], "_", solver]) 
     
@@ -281,7 +283,7 @@ def clustering_bqm(G, iteration, dirs, solver, gamma_factor, color, terminate_on
     print("S0 length: ", len(S0))
     print("S1 length: ", len(S1))
     if terminate_on == "min_size":
-        if(len(S0)>size_limit and len(S1)>size_limit):
+        if(len(S0)>size_limit and len(S1)>size_limit and iteration < iter_limit):
             # Assign nodes' labels
             col = random.randint(0, 100)
             for i in S0:
@@ -296,8 +298,8 @@ def clustering_bqm(G, iteration, dirs, solver, gamma_factor, color, terminate_on
             # file_name = "clustring_" + str(iteration) + ".gexf"
             # nx.write_gexf(G, file_name)
 
-            clustering_bqm(G.subgraph(S0), iteration+1, dirs, solver, gamma_factor, color+20, terminate_on, size_limit)
-            clustering_bqm(G.subgraph(S1), iteration+1, dirs, solver, gamma_factor, color+20, terminate_on, size_limit)
+            clustering_bqm(G.subgraph(S0), iteration+1, dirs, solver, gamma_factor, color+20, terminate_on, size_limit, iter_limit)
+            clustering_bqm(G.subgraph(S1), iteration+1, dirs, solver, gamma_factor, color+20, terminate_on, size_limit, iter_limit)
     #to-do
     elif terminate_on == "conf":
         print("energies", response.record.energy[:10])
@@ -318,8 +320,8 @@ def clustering_bqm(G, iteration, dirs, solver, gamma_factor, color, terminate_on
                 # G.nodes(data=True)[i][label] = color - 100
                 G.nodes(data=True)[i][label] = col
 
-            clustering_bqm(G.subgraph(S0), iteration+1, dirs, solver, gamma_factor, color+20, terminate_on, size_limit)
-            clustering_bqm(G.subgraph(S1), iteration+1, dirs, solver, gamma_factor, color+20, terminate_on, size_limit)
+            clustering_bqm(G.subgraph(S0), iteration+1, dirs, solver, gamma_factor, color+20, terminate_on, size_limit, iter_limit)
+            clustering_bqm(G.subgraph(S1), iteration+1, dirs, solver, gamma_factor, color+20, terminate_on, size_limit, iter_limit)
 
     elif terminate_on == "once":
         col = random.randint(0, 100)
@@ -330,6 +332,18 @@ def clustering_bqm(G, iteration, dirs, solver, gamma_factor, color, terminate_on
         for i in S1:
             G.nodes(data=True)[i][label] = col
 
+    elif terminate_on == "iter_limit":
+        if iteration < iter_limit:
+            col = random.randint(0, 100)
+            for i in S0:
+                G.nodes(data=True)[i][label] = col
+            
+            col = random.randint(120, 220)    
+            for i in S1:
+                G.nodes(data=True)[i][label] = col
+            
+            clustering_bqm(G.subgraph(S0), iteration+1, dirs, solver, gamma_factor, color+20, terminate_on, size_limit, iter_limit)
+            clustering_bqm(G.subgraph(S1), iteration+1, dirs, solver, gamma_factor, color+20, terminate_on, size_limit, iter_limit)
     return
 
 def clustering_dqm(G, num_of_clusters, gamma):
@@ -633,14 +647,91 @@ def clustering_bqm_2(G, iteration, dirs, solver, gamma_factor, color, terminate_
         return response
     return
 
+def clustering_bqm_3(G, iteration, dirs, solver, gamma_factor, color, terminate_on, size_limit):
+
+    name_spec = ''.join([dirs["name"], "_", solver]) 
+    
+    edges_weights = G.size(weight="weight")
+    nodes_len = len(G.nodes)
+    gamma = gamma_factor * edges_weights/nodes_len
+    print("gamma: ", gamma)
+    k = 8
+
+    # Initialize our Q matrix
+    Q = defaultdict(int)
+    # Fill in Q matrix
+    for u, v in G.edges:
+        Q[(u,u)] += k*G.get_edge_data(u, v)["weight"]
+        Q[(v,v)] += k*G.get_edge_data(u, v)["weight"]
+        Q[(u,v)] += k *-2*G.get_edge_data(u, v)["weight"]
+
+    bqm = BinaryQuadraticModel.from_qubo(Q)
+    
+    x = [str(n) for n in G.nodes()]
+    
+    c1 = [(x[int(n)], 1) for n in G.nodes()]
+    bqm.add_linear_inequality_constraint(c1,
+            lb = size_limit,
+            ub = len(G.nodes)/6,
+            lagrange_multiplier = gamma,
+            label = 'c1_constraint')
+    
+    print("... Running on QPU ...")
+
+    # sampler = EmbeddingComposite(DWaveSampler())
+    # response = sampler.sample(bqm)
+    response = hybrid.KerberosSampler().sample(bqm, max_iter=1, num_reads=1, qpu_reads=100, tabu_timeout=200, qpu_params={'label': 'Notebook - Hybrid Computing 1'})
+    # if solver == "hybrid":
+    #     sampler = LeapHybridSampler()
+    #     response = sampler.sample(bqm, label=name_spec, time_limit=3.0)
+    
+    # ------- Print results to user -------
+    print('-' * 60)
+    print('{:>15s}{:>15s}{:^15s}{:^15s}'.format('Set 0','Set 1','Energy','Num. of occurrences'))
+    print('-' * 60)
+
+    i=0
+    for sample, E, occur in response.data(fields=['sample','energy', "num_occurrences"]):
+        # select clusters
+        S0 = [k for k,v in sample.items() if v == 0]
+        S1 = [k for k,v in sample.items() if v == 1]
+
+        print('{:>15s}{:>15s}{:^15s}{:^15s}'.format(str(S0),str(S1),str(E),str(occur)))
+        
+        if (i > 3):
+            break
+        i = i + 1
+
+    
+    label = "label" + str(iteration)
+    lut = response.first.sample
+
+    # Interpret best result in terms of nodes and edges
+    S0 = [node for node in G.nodes if not lut[node]]
+    S1 = [node for node in G.nodes if lut[node]]
+
+    print("S0 length: ", len(S0))
+    print("S1 length: ", len(S1))
+
+    col = random.randint(0, 100)
+    for i in S0:
+        G.nodes(data=True)[i][label] = col
+    
+    col = random.randint(120, 220)    
+    for i in S1:
+        G.nodes(data=True)[i][label] = col
+    
+    return response
+    
+
 solvers = {
     "h"     : "hybrid",
     "fe"    : "fixed_embedding",
     "ec"    : "embedding_composite"
 }
-solver = solvers["fe"] # type of used solver
+solver = solvers["h"] # type of used solver
 
-n = 239    # size of the graph
+n = 512     # size of the graph
 k = 5       # k_nn used for SNN
 ord = 15    # maximum order of node degree when "trimmed" mode is enabled
 dim = 15    # number of dimensions used for SNN
@@ -650,8 +741,9 @@ gamma_factor = 0.05         # to be used with dqm, weights the clusters' sizes c
 gamma = 0.005               # to be used with bqm
 custom = ""                 # additional metadata for file names
 terminate_on = "min_size"   # other options: "conf", "min_size"
-size_limit = 30            # may be used in both bqm and dqm // to finish
+size_limit = 15             # may be used in both bqm and dqm // to finish
 num_of_clusters = 9         # may be used in both bqm and dqm // to finish
+iter_limit = 3              # limit of iteration 
 
 # define local directories
 dirs = define_dirs(n, k, dim, ord, gamma, gamma_factor, custom, g_type)
@@ -688,9 +780,13 @@ plot_and_save_graph_out_cqm(G, pos, dirs, sampleset_cqm, num_of_clusters)
 
 #  --------- clustering recursively with binary variables -----------
 iteration = 1
-clustering_bqm(G, iteration, dirs, solver, gamma_factor, color, terminate_on, size_limit)
+clustering_bqm(G, iteration, dirs, solver, gamma_factor, color, terminate_on, size_limit, iter_limit)
 plot_and_save_graph_out_bqm(G, pos, dirs)
 
+#  --------- clustering recursively with binary variables -----------
+iteration = 1
+clustering_bqm_3(G, iteration, dirs, solver, gamma_factor, color, terminate_on, size_limit)
+plot_and_save_graph_out_bqm(G, pos, dirs)
 
 #  --------- clustering recursively with binary variables -----------
 G, pos = create_graph(dirs["graph_in"])
