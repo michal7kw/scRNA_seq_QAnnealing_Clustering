@@ -2,7 +2,6 @@
 title: "R Notebook"
 output: html_notebook
 ---
-
 # Libraries
 ```{r warning=FALSE, message=FALSE, echo=FALSE}
 library(tidyverse)
@@ -26,12 +25,33 @@ virtualenv_create("scrna_proj")
 use_virtualenv("scrna_proj")
 ```
 
+```{r}
+n = 1108
+type = c("_", "_trimmed_", "_negedges_", "_trimmed_negedges_")
+id_type = 2
+dim = 30
+k = 5
+coff = 0.067 #1/15
+ord = 15
+```
+
+
 ```{python}
 import networkx as nx
-name = "239pru_graph_snn_k5_dim15_trimmed_15"
-gexf_graph_name = ''.join(["../../graphs/pbmc3k/", name, ".gexf"])
-png_graph_name = ''.join(["../../graphs/pbmc3k/", name, ".png"])
-png_graph_name2 = ''.join(["../../graphs/pbmc3k/", name, "_2.png"])
+
+id_type, type = int(r.id_type)-1, r.type
+n = int(r.n)
+k = int(r.k)
+ord = int(r.ord)
+dim = int(r.dim)
+
+name = ''.join([str(n), "_graph_snn", "_k", str(k), "_dim", str(dim), type[id_type], str(ord)])
+path = "../../graphs/kidney/"
+gexf_graph_name = ''.join([path, name, ".gexf"])
+
+
+png_graph_name = ''.join([path, name, ".png"])
+png_graph_name2 = ''.join([path, name, "_2.png"])
 
 graph = nx.read_gexf(gexf_graph_name)
 ```
@@ -40,7 +60,6 @@ graph = nx.read_gexf(gexf_graph_name)
 ```{r, echo=FALSE}
 knitr::include_graphics(py$png_graph_name)
 ```
-
 # Plot Disconnected Graphs
 ```{python}
 import numpy as np
@@ -53,7 +72,9 @@ S = [graph.subgraph(c).copy() for c in nx.connected_components(graph)]
 
 for s in S:
   print(len(s.nodes()))
-  if len(s.nodes()) > 15: 
+  if len(s.nodes()) > 15:
+    # file_name = ''.join(["../../graphs/kidney/", str(n), "_graph_snn", "_k", str(k), "_dim", str(dim), type[id_type], str(ord),"_component_", str(len(s.nodes())), ".gexf"])
+    nx.write_gexf(s, file_name)
     for n in s.nodes():
       graph.nodes(data=True)[n]["valid"] = 1
   else:
@@ -61,8 +82,6 @@ for s in S:
       graph.nodes(data=True)[n]["valid"] = 0
       
 colors = [n for n in nx.get_node_attributes(graph, "valid").values()]
-# file_name = ''.join(["../../graphs/kidney/", str(n), "_graph_snn", "_k", str(k), "_dim", str(dim), type[id_type], str(ord), ".gexf"])
-# 
 # G = nx.from_numpy_matrix(r.kidney_snn)
 # nx.write_gexf(G, file_name)
 

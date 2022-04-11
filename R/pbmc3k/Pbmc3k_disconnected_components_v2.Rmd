@@ -28,10 +28,17 @@ use_virtualenv("scrna_proj")
 
 ```{python}
 import networkx as nx
-name = "239pru_graph_snn_k5_dim15_trimmed_15"
-gexf_graph_name = ''.join(["../../graphs/pbmc3k/", name, ".gexf"])
-png_graph_name = ''.join(["../../graphs/pbmc3k/", name, ".png"])
-png_graph_name2 = ''.join(["../../graphs/pbmc3k/", name, "_2.png"])
+# name = "239pru_graph_snn_k5_dim15_trimmed_15"
+# path = "../../graphs/pbmc3k/"
+# gexf_graph_name = ''.join([path, name, ".gexf"])
+
+name = "1001_graph_snn_k5_dim15_trimmed_15"
+path = "../../graphs/kidney/not_enhanced/"
+gexf_graph_name = ''.join([path, name, ".gexf"])
+
+
+png_graph_name = ''.join([path, name, ".png"])
+png_graph_name2 = ''.join([path, name, "_2.png"])
 
 graph = nx.read_gexf(gexf_graph_name)
 ```
@@ -53,7 +60,10 @@ S = [graph.subgraph(c).copy() for c in nx.connected_components(graph)]
 
 for s in S:
   print(len(s.nodes()))
-  if len(s.nodes()) > 15: 
+  if len(s.nodes()) > 15:
+    file_name = ''.join(["../../graphs/kidney/", str(n), "_graph_snn", "_k", str(k), "_dim", str(dim), type[id_type], str(ord),"_component_", str(len(s.nodes())), ".gexf"])
+    nx.write_gexf(G, file_name)
+    
     for n in s.nodes():
       graph.nodes(data=True)[n]["valid"] = 1
   else:
@@ -61,10 +71,7 @@ for s in S:
       graph.nodes(data=True)[n]["valid"] = 0
       
 colors = [n for n in nx.get_node_attributes(graph, "valid").values()]
-# file_name = ''.join(["../../graphs/kidney/", str(n), "_graph_snn", "_k", str(k), "_dim", str(dim), type[id_type], str(ord), ".gexf"])
-# 
-# G = nx.from_numpy_matrix(r.kidney_snn)
-# nx.write_gexf(G, file_name)
+# s = nx.from_numpy_matrix(r.kidney_snn)
 
 pos = nx.spring_layout(graph)
 plt.cla()
@@ -72,4 +79,8 @@ nx.draw_networkx_nodes(graph, pos, node_size=10, nodelist=graph.nodes, node_colo
 nx.draw_networkx_edges(graph, pos, edgelist=graph.edges, style='solid', alpha=0.5, width=1)
 
 plt.savefig(png_graph_name2, bbox_inches='tight')
+```
+
+```{python}
+node_color=[ '#%02x%02x%02x' % (random.randint(0, 255),random.randint(0, 255),random.randint(0, 255))]
 ```

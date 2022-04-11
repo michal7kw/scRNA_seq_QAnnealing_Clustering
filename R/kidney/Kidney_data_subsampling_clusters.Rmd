@@ -1,0 +1,63 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+takes QA clustered graph:   QA_pruned_clustered
+takes Seurat object:        selected_b              (from "Data_subsampling" notebook, original graph)
+takes Seurat object:        selected_b_2            (from "Data_subsampling" notebook, original graph)
+takes Seurat object:        selected_b_2_pruned     (from "Data_subsampling" notebook, pruned graph)
+# Libraries
+```{r warning=FALSE, message=FALSE, echo=FALSE}
+library(tidyverse)
+library(Seurat)
+library(ggplot2)
+library(bspec)
+library(sctransform)
+library(cowplot)
+library(gridExtra)
+library(dplyr)
+library(patchwork)
+library(sctransform)
+library(glmGamPoi)
+```
+
+# Get clustered-pruned graph back from QA
+```{python}
+# name_pruned_clustered = "1024_dqm_graph_snn_k5_dim15_g0005_trimmed_5.gexf"
+# name_pruned_clustered = "1024_cqm_graph_snn_k5_dim15_g0005_trimmed_15.gexf"
+name_pruned_clustered = "942_cqm_graph_snn_k10_dim30_g0005_trimmed_15v3.gexf"
+QA_pruned_clustered = nx.read_gexf(''.join(["../../dataIn/kidney/", name_pruned_clustered]))
+
+colors2 = [y[sorted(y.keys())[-1]] for x,y in QA_pruned_clustered.nodes(data=True)]
+```
+
+```{r}
+colors2 = py$colors2
+colors2 = unlist(colors2)
+leng = dim(GetAssayData(selected_2))[2]
+
+colors_vec <- integer(leng)
+colors_vec[!!pruned] <- colors2+2
+
+selected_b <- AddMetaData(selected_b, metadata=colors_vec, col.name="QA_pruning_clusters")
+selected_b_2 <- AddMetaData(selected_b_2, metadata=colors_vec, col.name="QA_pruning_clusters")
+selected_b_2_pruned <- AddMetaData(selected_b_2_pruned, metadata=colors2, col.name="QA_pruning_clusters")
+```
+
+# Check clustering performance with the pruned graphs
+```{r}
+DimPlot(selected_b_2_pruned, label = TRUE, label.size = 3, group.by="seurat_clusters") #+ NoLegend()
+DimPlot(selected_b_2_pruned, group.by="celltype",repel = TRUE, label = TRUE, label.size = 3) #+ NoLegend()
+DimPlot(selected_b_2_pruned, reduction = "umap", group.by="QA_pruning_clusters", label = TRUE)
+```
+
+```{r}
+selected_2_pruned_new_umap <- RunUMAP(selected_b_2_pruned, dim=1:15)
+DimPlot(selected_2_pruned_new_umap, group.by="celltype",repel = TRUE, label = TRUE, label.size = 3) #+ NoLegend()
+DimPlot(selected_2_pruned_new_umap, reduction = "umap", group.by="QA_pruning_clusters", label = TRUE)
+```
+
+```{r, eval=FALSE}
+selected_2_pruned_new_umap <- FindClusters(selected_2_pruned_new_umap, verbose = FALSE, resolution = 0.35, algorithm = 1)
+DimPlot(selected_2_pruned_new_umap, reduction = "umap", group.by="seurat_clusters", label = TRUE)
+```

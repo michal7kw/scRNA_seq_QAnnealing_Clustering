@@ -2,7 +2,8 @@
 title: "R Notebook"
 output: html_notebook
 ---
-
+Processes Kidney dataset
+Selects and processes: selected_a(old embedding), selected_a_2(new embedding)
 # Libraries
 ```{r warning=FALSE, message=FALSE, echo=FALSE}
 library(tidyverse)
@@ -17,62 +18,69 @@ library(patchwork)
 library(sctransform)
 library(glmGamPoi)
 library(SeuratDisk)
+library("parallel")
 ```
-
-# Import Data
-
+# Whole Dataset
+kidney - whole dataset, 10605 samples
+## Clean Data
 ```{r}
 # ------- use previously created Seurat object -------
 kidney <- readRDS(file = "../../data/kidney_demo_stewart.rds")
 
 # ------- use processed ones, with mt regress -------
-# kidney <- readRDS(file = "../data/kidney_data/kidney_mt_regress.rds")
-# kidney_snn <- readRDS(file = "../data/kidney_data/kidney_mt_snn_regress.rds")
+# kidney <- readRDS(file = "../../data/kidney_data/kidney_mt_regress.rds")
+# kidney_snn <- readRDS(file = "../../data/kidney_data/kidney_mt_snn_regress.rds")
 
 # ------- use processed ones, without mt regress -------
-# kidney <- readRDS(file = "../data/kidney_data/kidney.rds")
-# kidney_snn <- readRDS(file = "../data/kidney_data/kidney_snn.rds")
+# kidney <- readRDS(file = "../../data/kidney_data/kidney.rds")
+# kidney_snn <- readRDS(file = "../../data/kidney_data/kidney_snn.rds")
 ```
 
 ```{r}
 kidney[["percent.mt"]] <- PercentageFeatureSet(kidney, pattern = "^MT-")
-kidney <- subset(kidney, subset = nFeature_RNA > 200 & nFeature_RNA < 5000 & percent.mt < 20)
 
-# kidney <- SCTransform(kidney, method = "glmGamPoi", vars.to.regress = "percent.mt", verbose = FALSE)
-kidney <- SCTransform(kidney, method = "glmGamPoi", verbose = FALSE)
+kidney <- subset(kidney, subset = nFeature_RNA > 203 & nFeature_RNA < 7000 & nCount_RNA > 254 & nCount_RNA < 40000 & percent.mt < 20) 
+```
+
+## Reduce dimensions
+```{r}
+kidney <- SCTransform(kidney, vars.to.regress = "percent.mt", method = "glmGamPoi", verbose = FALSE)
 kidney <- RunPCA(kidney, features = VariableFeatures(object = kidney))
 ```
 
-```{r}
+```{r, eval=FALSE}
 kidney[["kidney_general"]] <- "kidney_cells"
 VlnPlot(kidney, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), group.by = "kidney_general", ncol = 3)
 
-plot1 <- FeatureScatter(kidney, feature1 = "nCount_RNA", feature2 = "percent.mt", group.by = "kidney_general")
-plot2 <- FeatureScatter(kidney, feature1 = "nCount_RNA", feature2 = "nFeature_RNA", group.by = "kidney_general")
-plot1 + plot2
+plot1 <- FeatureScatter(kidney, feature1 = "nCount_RNA", feature2 = "nFeature_RNA", group.by = "kidney_general")
+plot1
 
 ncol(kidney)
 ```
 
-# Find SNN
+## Find SNN
 ```{r}
 n = ncol(kidney)
 dim(kidney)
 
 type = c("_", "_trimmed_", "_negedges_", "_trimmed_negedges_")
 id_type = 2
-dim = 15
+dim = 30
 k = 5
-coff = 0 #1/15
-ord = 5
+coff = 0.067 #1/15
+ord = 15
 
-kidney <- FindNeighbors(kidney, reduction = "pca", dims = 1:dim, k.param=k, compute.SNN=TRUE) #prune.SNN=coff
+kidney <- FindNeighbors(kidney, reduction = "pca", dims = 1:dim, k.param=k, compute.SNN=TRUE, prune.SNN=coff)
+```
 
+```{r, eval=FALSE}
 kidney_snn_temp <- kidney@graphs[["SCT_snn"]]
 
 dim(kidney_snn_temp)
-kidney_snn <- kidney_snn_temp - diag(n)
+kidney_snn <- kidney_snn_temp - diag(nrow=n, ncol=n)
+```
 
+```{r, eval=FALSE}
 # ------- limitation of nodes degrees -------
 for (i in 1:n){
   to_delete <- order(kidney_snn[,i], decreasing = TRUE)[seq(ord+1,n,1)]
@@ -81,15 +89,7 @@ for (i in 1:n){
 }
 ```
 
-```{r}
-# saveRDS(kidney, "../../data/kidney_data/kidney.rds")
-# saveRDS(kidney_snn, "../../data/kidney_data/kidney_snn.rds")
-
-saveRDS(kidney, "../../data/kidney_data/kidney_mt_regress.rds")
-saveRDS(kidney_snn, "../../data/kidney_data/kidney_mt_snn_regress.rds")
-```
-
-# Plot and save graphs 
+## Plot and save graphs 
 ```{r setup}
 library(reticulate)
 virtualenv_create("scrna_proj")
@@ -97,7 +97,7 @@ virtualenv_create("scrna_proj")
 use_virtualenv("scrna_proj")
 ```
 
-```{python}
+```{python, eval=FALSE}
 import numpy as np
 import networkx as nx
 from matplotlib import pyplot as plt
@@ -123,12 +123,166 @@ file_name = ''.join(["../../graphs/kidney/", str(n), "_graph_snn", "_k", str(k),
 plt.savefig(file_name, bbox_inches='tight')
 ```
 
-# Look for cell types
+## Clustering
 ```{r}
 DimPlot(kidney, reduction = "pca", group.by="celltype") + NoLegend()
 ```
+
 ```{r}
 kidney <- RunUMAP(kidney, reduction = "pca", dims = 1:10)
 DimPlot(kidney, reduction = "umap", group.by="celltype",repel = TRUE, label = TRUE, label.size = 3) + NoLegend()
 ```
 
+```{r, eval=FALSE}
+# ------- k-means -------
+km.out <- kmeans(kidney@assays$SCT@data %>% as.matrix %>% t %>% as.data.frame, centers=12, nstart=5)
+kidney <- AddMetaData(kidney, metadata=km.out$cluster, col.name="kmeans")
+DimPlot(kidney, reduction = "umap", group.by="kmeans") # + NoLegend()
+```
+
+```{r, eval=FALSE}
+# ------- Seurat clustering -------
+kidney <- FindClusters(kidney, verbose = FALSE, resolution = 0.2, algorithm = 1)
+DimPlot(kidney, reduction = "umap", group.by="seurat_clusters") # + NoLegend()
+```
+
+```{r}
+# ------- Seurat clustering -------
+kidney <- FindClusters(kidney, verbose = FALSE, resolution = 0.8, algorithm = 1)
+DimPlot(kidney, reduction = "umap", group.by="seurat_clusters") # + NoLegend()
+```
+
+# Selected subset
+selected_a - includes cells [Myofibroblast, vasa recta endothelium, Peritubular capillary endothelium]; trimmed to 1000 cells; original embedding derived from the whole dataset
+selected_a_2 - the same as selected_a, but with the new embedding
+## Select and Transform Data
+```{r}
+unique(kidney$celltype)
+```
+
+```{r}
+to_select <- c("Myofibroblast", "Descending vasa recta endothelium", "Peritubular capillary endothelium 2", "Peritubular capillary endothelium 1", "Ascending vasa recta endothelium")
+selected_meta <- is.element(kidney$celltype, to_select)
+kidney <- AddMetaData(kidney, metadata=selected_meta, col.name="selected")
+selected_a <- subset(x = kidney, subset = selected == TRUE)
+ncol(selected_a)
+selected_a <- selected_a[,colnames(selected_a)[1:1000]]
+ncol(selected_a)
+```
+
+```{r}
+selected_a_2 <- SCTransform(selected_a, vars.to.regress = "percent.mt", method = "glmGamPoi", verbose = FALSE)
+selected_a_2 <- RunPCA(selected_a_2, features = VariableFeatures(object = selected_a_2))
+```
+
+```{r}
+selected_a_2 <- RunUMAP(selected_a_2, dims = 1:30, verbose = FALSE)
+selected_a_2 <- FindNeighbors(selected_a_2, dims = 1:30, verbose = FALSE)
+selected_a_2 <- FindClusters(selected_a_2, resolution = 0.1, verbose = FALSE)
+```
+
+```{r}
+DimPlot(selected_a, label = TRUE, label.size = 3, group.by="seurat_clusters") #+ NoLegend()
+DimPlot(selected_a, group.by="celltype",repel = TRUE, label = TRUE, label.size = 3) #+ NoLegend()
+```
+
+```{r}
+DimPlot(selected_a_2, label = TRUE, label.size = 3, group.by="seurat_clusters") #+ NoLegend()
+DimPlot(selected_a_2, group.by="celltype",repel = TRUE, label = TRUE, label.size = 3) #+ NoLegend()
+```
+
+## Generate SNN graph
+```{r}
+n = ncol(selected_a_2)
+dim(selected_a_2)
+
+type = c("_", "_trimmed_", "_negedges_", "_trimmed_negedges_")
+id_type = 2
+dim = 30
+k = 10
+coff = 0.067 #1/15
+ord = 15
+
+selected_a_2 <- FindNeighbors(selected_a_2, reduction = "pca", dims = 1:dim, k.param=k, compute.SNN=TRUE, prune.SNN=coff)
+
+selected_a_2_snn_temp <- selected_a_2@graphs[["SCT_snn"]]
+
+dim(selected_a_2_snn_temp)
+selected_a_2_snn <- selected_a_2_snn_temp - diag(nrow=n, ncol=n)
+```
+
+```{r}
+isSymmetric(selected_a_2_snn)
+```
+
+```{r}
+# ------- limitation of nodes degrees SYMMETRICS-------
+for (i in 1:n){
+  to_delete <- order(selected_a_2_snn[,i], decreasing = TRUE)[seq(ord+1,n,1)]
+  selected_a_2_snn[,i][to_delete] <- integer(n-ord)
+  selected_a_2_snn[i,][to_delete] <- integer(n-ord)
+}
+```
+
+```{r, eval=FALSE}
+# ------- limitation of nodes degrees UNSYMMETRIC -------
+for (i in 1:n){
+  to_delete <- order(selected_a_2_snn[,i], decreasing = TRUE)[seq(ord+1,n,1)]
+  selected_a_2_snn[,i][to_delete] <- integer(n-ord)
+}
+```
+
+```{r, eval=FALSE}
+# ------- Enhance shared edges (may want to repeat multiple times) -------
+library(Matrix)
+
+# Method 1
+selected_a_2_snn_old <- selected_a_2_snn
+for (i in 1:n){
+    selected_a_2_snn[i,] <- selected_a_2_snn_old[i,]+selected_a_2_snn_old[,i]
+}
+
+# Method 2
+mutual = matrix(0,n,n)
+
+for (i in 1:n){
+    mutual[i,] <- selected_a_2_snn[i,] & selected_a_2_snn[,i] 
+}
+nnzero(mutual)
+
+selected_a_2_snn_old <- selected_a_2_snn
+for (i in 1:n){
+    selected_a_2_snn[i,] <- selected_a_2_snn_old[i,]+mutual[,i]
+}
+```
+
+## Plot and save graphs 
+```{python}
+import numpy as np
+import networkx as nx
+from matplotlib import pyplot as plt
+
+id_type, type = int(r.id_type)-1, r.type
+n = int(r.n)
+k = int(r.k)
+ord = int(r.ord)
+dim = int(r.dim)
+
+file_name = ''.join(["../../graphs/kidney/", str(n), "_graph_snn", "_k", str(k), "_dim", str(dim), type[id_type], str(ord), ".gexf"])
+
+G = nx.from_numpy_matrix(r.selected_a_2_snn)
+nx.write_gexf(G, file_name)
+
+G = nx.read_gexf(file_name)
+pos = nx.spring_layout(G)
+plt.cla()
+nx.draw_networkx_nodes(G, pos, node_size=10, nodelist=G.nodes)
+nx.draw_networkx_edges(G, pos, edgelist=G.edges, style='solid', alpha=0.5, width=1)
+
+file_name = ''.join(["../../graphs/kidney/", str(n), "_graph_snn", "_k", str(k), "_dim", str(dim), type[id_type], str(ord), ".png"])
+plt.savefig(file_name, bbox_inches='tight')
+```
+
+```{r}
+knitr::include_graphics(py$file_name)
+```

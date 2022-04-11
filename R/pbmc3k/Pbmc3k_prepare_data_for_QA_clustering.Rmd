@@ -32,7 +32,7 @@ creates SNN Graph:       pbmc3k_QA_snn
 # pbmc3k <- readRDS(file = "data/pbmc_data/pbmc3k/pbmc3k_init.rds")
 
 # ----- Load new PBMC dataset -----
-pbmc.data <- Read10X(data.dir = "./data/pbmc_data/pbmc3k/filtered_gene_bc_matrices/hg19/")
+pbmc.data <- Read10X(data.dir = "../../data/pbmc_data/pbmc3k/filtered_gene_bc_matrices/hg19/")
 
 # ------- Initialize the Seurat object with the raw (non-normalized data) -------
 pbmc3k <- CreateSeuratObject(counts = pbmc.data, project = "pbmc3k", min.cells = 3, min.features = 200)
@@ -43,8 +43,8 @@ pbmc3k <- subset(pbmc3k, subset = nFeature_RNA > 200 & nFeature_RNA < 2500 & per
 # ------- Subset the data -------
 # pbmc3k_QA <- pbmc3k
 # pbmc3k_QA <- pbmc3k[,1:2048]
-pbmc3k_QA <- pbmc3k[,1:1024]
-# pbmc3k_QA <- pbmc3k[,1:512]
+# pbmc3k_QA <- pbmc3k[,1:1024]
+pbmc3k_QA <- pbmc3k[,1:512]
 # pbmc3k_QA <- pbmc3k[,1:256]
 # pbmc3k_QA <- pbmc3k[,1:128]
 
@@ -58,7 +58,7 @@ n = ncol(pbmc3k_QA)
 dim(pbmc3k_QA)
 
 type = c("_", "_trimmed_", "_negedges_", "_trimmed_negedges_")
-id_type = 2
+id_type = 1
 dim = 15
 k = 5
 coff = 0 #1/15
@@ -98,7 +98,7 @@ k = int(r.k)
 ord = int(r.ord)
 dim = int(r.dim)
 
-file_name = ''.join(["./graphs/", str(n), "_graph_snn", "_k", str(k), "_dim", str(dim), type[id_type], str(ord), ".gexf"])
+file_name = ''.join(["../../graphs/pbmc3k/", str(n), "_graph_snn", "_k", str(k), "_dim", str(dim), type[id_type], str(ord), ".gexf"])
 
 G = nx.from_numpy_matrix(r.pbmc3k_QA_snn)
 nx.write_gexf(G, file_name)
@@ -109,6 +109,6 @@ plt.cla()
 nx.draw_networkx_nodes(G, pos, node_size=10, nodelist=G.nodes)
 nx.draw_networkx_edges(G, pos, edgelist=G.edges, style='solid', alpha=0.5, width=1)
 
-file_name = ''.join(["./graphs/", str(n), "_graph_snn", "_k", str(k), "_dim", str(dim), type[id_type], str(ord), ".png"])
+file_name = ''.join(["../../graphs/pbmc3k/", str(n), "_graph_snn", "_k", str(k), "_dim", str(dim), type[id_type], str(ord), ".png"])
 plt.savefig(file_name, bbox_inches='tight')
 ```

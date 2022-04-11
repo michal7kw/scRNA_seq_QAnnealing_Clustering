@@ -19,17 +19,25 @@ library(glmGamPoi)
 ```
 
 # Data Sampling and Pruning (files' prefix: "pd")
-takes QA sub sampled graph:   QA_prune
+takes QA sub-sampled graph:   QA_prune
 creates Seurat object:        pbmc3k_QA_pd        (original data)
 creates Seurat object:        pbmc3k_QA_pruned    (pruned data)
 creates SNN graph:            pbmc3k_QA_pruned_snn
+
 ## Import graph subsampling
+```{r setup}
+library(reticulate)
+virtualenv_create("scrna_proj")
+# py_install(c("networkx","matplotlib"), envname = "scrna_proj")
+use_virtualenv("scrna_proj")
+```
+
 ```{python}
 # IMPORT GRAPH SUBSAMPLING (indicated by attribute "label1" : 1)
 import networkx as nx
 QA_output_name = "1024_pru_graph_snn_k5_dim15_trimmed_5.gexf"
 
-QA_prune = nx.read_gexf(''.join(["./dataIn/", QA_output_name]))
+QA_prune = nx.read_gexf(''.join(["../../dataIn/", QA_output_name]))
 ```
 
 ```{python}
@@ -45,7 +53,7 @@ pruned = [y[sorted(y.keys())[-1]] for x,y in QA_prune.nodes(data=True)]
 # pbmc3k <- readRDS(file = "data/pbmc_data/pbmc3k/pbmc3k_init.rds")
 
 # ----- Load new PBMC dataset -----
-pbmc.data <- Read10X(data.dir = "./data/pbmc_data/pbmc3k/filtered_gene_bc_matrices/hg19/")
+pbmc.data <- Read10X(data.dir = "../../data/pbmc_data/pbmc3k/filtered_gene_bc_matrices/hg19/")
 
 # ------- Initialize the Seurat object with the raw (non-normalized data) -------
 pbmc3k <- CreateSeuratObject(counts = pbmc.data, project = "pbmc3k", min.cells = 3, min.features = 200)
@@ -74,7 +82,7 @@ dim(pbmc3k_QA_pruned)
 type = c("_", "_trimmed_", "_negedges_", "_trimmed_negedges_")
 id_type = 2
 dim = 15
-k = 5
+k = 15
 coff = 0 #1/15
 ord = 15
 
@@ -115,14 +123,18 @@ pbmc3k_QA_pruned_snn_old <- pbmc3k_QA_pruned_snn
 for (i in 1:n){
     pbmc3k_QA_pruned_snn[i,] <- pbmc3k_QA_pruned_snn_old[i,]+pbmc3k_QA_pruned_snn_old[,i]
 }
+```
 
+```{r, eval=TRUE}
 # ------- limitation of nodes degrees -------
 for (i in 1:n){
   to_delete <- order(pbmc3k_QA_pruned_snn[,i], decreasing = TRUE)[seq(ord+1,n,1)]
   pbmc3k_QA_pruned_snn[,i][to_delete] <- integer(n-ord)
   pbmc3k_QA_pruned_snn[i,][to_delete] <- integer(n-ord)
 }
+```
 
+```{r}
 mean(as.matrix(pbmc3k_QA_pruned_snn))
 mean(as.matrix(pbmc3k_QA_pruned_snn_old))
 remove(pbmc3k_QA_pruned_snn_old)
@@ -145,7 +157,6 @@ file_name = ''.join(["../../graphs/pbmc3k/", str(n), "pru_graph_snn", "_k", str(
 
 G = nx.from_numpy_matrix(r.pbmc3k_QA_pruned_snn)
 nx.write_gexf(G, file_name)
-
 G = nx.read_gexf(file_name)
 pos = nx.spring_layout(G)
 plt.cla()

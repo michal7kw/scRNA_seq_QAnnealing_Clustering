@@ -68,7 +68,7 @@ pbmc3k_scT <- pbmc3k
 ```
 
 ```{r}
-remove(pbmc3k)
+# remove(pbmc3k)
 ```
 
 # Data Noralization
@@ -113,7 +113,7 @@ plot2_SR <- ggplotGrob(LabelPoints(plot = plot1_SR, points = top10_SR, repel = T
 plot1_scT <- VariableFeaturePlot(pbmc3k_scT)
 plot2_scT <- ggplotGrob(LabelPoints(plot = plot1_scT, points = top10_scT, repel = TRUE)+ ggtitle("pbmc3k_scT"))
 
-png(file="./output/Variable_Features_combined.png")
+png(file="../../output/Variable_Features_combined.png")
 grid.arrange(plot2_log, plot2_SR, plot2_scT, nrow = 3)
 dev.off()
 ```
