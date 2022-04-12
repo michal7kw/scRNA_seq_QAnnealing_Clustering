@@ -14,7 +14,7 @@ pip install dwave-ocean-sdk
 Data are provided in either .csv edge list format or networkx .gxef file.  
 Input graphs were generated using the Seurat SNN on the preprocessed PBMC scRNA data.
 
-code is in the early development stage
+code is in the development stage
 
 ## Contributing
 
