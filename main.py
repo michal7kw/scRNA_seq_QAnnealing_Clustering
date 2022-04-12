@@ -80,7 +80,7 @@ solvers = {
 }
 solver = solvers["h"] # type of used solver
 
-n = 1000     # size of the graph
+n = 942     # size of the graph
 k = 10       # k_nn used for SNN
 ord = 15    # maximum order of node degree when "trimmed" mode is enabled
 dim = 30    # number of dimensions used for SNN
@@ -88,7 +88,7 @@ g_type = 1  # ["_", "_trimmed_", "_negedges_", "_trimmed_negedges_"], where "_" 
 color = 0   # initial value of clusters coloring fro bqm
 gamma_factor = 0.05         # to be used with dqm, weights the clusters' sizes constraint
 gamma = 0.005               # to be used with bqm
-custom = "new"                 # additional metadata for file names
+custom = ""                 # additional metadata for file names
 terminate_on = "min_size"   # other options: "conf", "min_size"
 size_limit = 20             # may be used in both bqm and dqm // to finish
 num_of_clusters = 5         # may be used in both bqm and dqm // to finish
@@ -98,7 +98,10 @@ iter_limit = 3              # limit of iteration
 dirs = define_dirs(n, k, dim, ord, gamma, gamma_factor, custom, g_type)
 
 # --------- import graph custom name ---------
-graph_name="1024_graph_snn_k5_dim15_trimmed_15.gexf"
+graph_name="kidney/942pru_graph_snn_k10_dim30_trimmed_15.gexf"
+graph_name="kidney/942pru_graph_snn_k10_dim30_trimmed_15enh.gexf"
+graph_name="kidney/1000_graph_snn_k10_dim30_trimmed_15_selected_a_2_snn_enh2.gexf"
+graph_name="kidney/1000_graph_snn_k10_dim30_trimmed_15_selected_a_2_snn_enh.gexf"
 G, pos = create_graph("./DatasetsIn/" + graph_name)
 
 # --------- import graph automatic name --------
@@ -154,10 +157,10 @@ check_embedding_inspector(G, gamma_factor)
 
 
 #  --------- Retrive response -----------
-sampleset = retrive_response(problem_id="98dd457d-a057-4f81-bbcd-3e8034f58413", token="DEV-96c7ac68f866387f382beade0d34ca0640a19935")
+sampleset = retrive_response(problem_id="555e72bf-f014-463d-977c-8bf071380f30", token="DEV-96c7ac68f866387f382beade0d34ca0640a19935")
 dwave.inspector.show(sampleset)
 print(sampleset)
-
+plot_and_save_graph_out_cqm_multi(G, pos, dirs, sampleset, num_of_clusters, 16)
 
 
 

@@ -1,3 +1,4 @@
+from unittest import result
 import networkx as nx
 from collections import defaultdict
 import matplotlib
@@ -99,3 +100,27 @@ def plot_and_save_graph_out_mvc(G, pos, dirs):
     plt.savefig(dirs["img_out_p1"], bbox_inches='tight')
 
     nx.write_gexf(G, dirs["graph_out_pru1"])
+
+
+def plot_and_save_graph_out_cqm_multi(G, pos, dirs, sampleset_cqm, num_of_clusters, number_of_samples):
+    results = [sample for sample in sampleset_cqm.samples()[:number_of_samples-1]]
+    
+    for i in range(len(results)):
+        graph_name="./graphs_multi_samples/sample_number" + str(i)
+
+        sample = results[i]
+        clusters = [-1]*G.number_of_nodes()
+        labels = defaultdict(int)
+
+        for node in G.nodes:
+            for p in range(num_of_clusters):
+                if sample[f'v_{int(node)},{p}'] == 1:
+                    clusters[int(node)] = p
+                    labels[node] = p
+
+        plt.cla()
+        nx.draw(G, pos=pos, with_labels=False, node_color=clusters, node_size=10, cmap=plt.cm.rainbow)                 
+        plt.savefig(graph_name + ".png", bbox_inches='tight')
+
+        nx.set_node_attributes(G, labels, name="label1")
+        nx.write_gexf(G, graph_name + ".gexf")
