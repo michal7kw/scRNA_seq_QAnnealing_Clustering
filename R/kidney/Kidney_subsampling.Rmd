@@ -196,7 +196,7 @@ ord = 15
 selected_b_2_pruned <- FindNeighbors(selected_b_2_pruned, reduction = "pca", dims = 1:dim, k.param=k, compute.SNN=TRUE) #prune.SNN=coff
 ```
 
-```{r}
+```{r, eval=FALSE}
 selected_b_2_pruned_snn <- selected_b_2_pruned@graphs[["SCT_snn"]]
 
 dim(selected_b_2_pruned_snn)
@@ -206,7 +206,7 @@ remove(selected_b_2_pruned_snn_temp)
 # selected_b_2_pruned_snn <- round(selected_b_2_pruned_snn, digits=2)
 ```
 
-```{r}
+```{r, eval=FALSE}
 # ------- limitation of nodes degrees SYMMETRICS-------
 for (i in 1:n){
   to_delete <- order(selected_b_2_pruned_snn[,i], decreasing = TRUE)[seq(ord+1,n,1)]
@@ -248,7 +248,7 @@ for (i in 1:n){
 ```
 
 ## Plot and save graphs
-```{python}
+```{python, eval=FALSE}
 import numpy as np
 import networkx as nx
 from matplotlib import pyplot as plt
@@ -273,7 +273,7 @@ file_name = ''.join(["../../graphs/kidney/", str(n), "pru_graph_snn", "_k", str(
 plt.savefig(file_name, bbox_inches='tight')
 ```
 
-```{r}
+```{r, eval=FALSE}
 knitr::include_graphics(py$file_name)
 ```
 

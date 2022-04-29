@@ -96,7 +96,7 @@ pbmc3k_QA_pruned_snn_temp <- pbmc3k_QA_pruned_snn
 pbmc3k_QA_pruned_snn <- pbmc3k_QA_pruned_snn_temp - diag(n)
 remove(pbmc3k_QA_pruned_snn_temp)
 
-# ------- limitation of nodes degrees -------
+# ------- limitation of nodes degrees SYMMETRIC -------
 # for (i in 1:n){
 #   to_delete <- order(pbmc3k_QA_snn[,i], decreasing = TRUE)[seq(ord+1,n,1)]
 #   pbmc3k_QA_snn[,i][to_delete] <- integer(n-ord)

@@ -22,10 +22,24 @@ library(glmGamPoi)
 ```
 
 # Get clustered-pruned graph back from QA
+```{r setup}
+library(reticulate)
+virtualenv_create("scrna_proj")
+# py_install(c("networkx","matplotlib"), envname = "scrna_proj")
+use_virtualenv("scrna_proj")
+```
+
+```{python}
+import numpy as np
+import networkx as nx
+from matplotlib import pyplot as plt
+```
+
 ```{python}
 # name_pruned_clustered = "1024_dqm_graph_snn_k5_dim15_g0005_trimmed_5.gexf"
 # name_pruned_clustered = "1024_cqm_graph_snn_k5_dim15_g0005_trimmed_15.gexf"
 name_pruned_clustered = "942_cqm_graph_snn_k10_dim30_g0005_trimmed_15v3.gexf"
+name_pruned_clustered = "964_nodes_pruned/sample_number1.gexf"
 QA_pruned_clustered = nx.read_gexf(''.join(["../../dataIn/kidney/", name_pruned_clustered]))
 
 colors2 = [y[sorted(y.keys())[-1]] for x,y in QA_pruned_clustered.nodes(data=True)]
@@ -34,7 +48,7 @@ colors2 = [y[sorted(y.keys())[-1]] for x,y in QA_pruned_clustered.nodes(data=Tru
 ```{r}
 colors2 = py$colors2
 colors2 = unlist(colors2)
-leng = dim(GetAssayData(selected_2))[2]
+leng = dim(GetAssayData(selected_b_2))[2]
 
 colors_vec <- integer(leng)
 colors_vec[!!pruned] <- colors2+2
@@ -46,7 +60,7 @@ selected_b_2_pruned <- AddMetaData(selected_b_2_pruned, metadata=colors2, col.na
 
 # Check clustering performance with the pruned graphs
 ```{r}
-DimPlot(selected_b_2_pruned, label = TRUE, label.size = 3, group.by="seurat_clusters") #+ NoLegend()
+# DimPlot(selected_b_2_pruned, label = TRUE, label.size = 3, group.by="seurat_clusters") #+ NoLegend()
 DimPlot(selected_b_2_pruned, group.by="celltype",repel = TRUE, label = TRUE, label.size = 3) #+ NoLegend()
 DimPlot(selected_b_2_pruned, reduction = "umap", group.by="QA_pruning_clusters", label = TRUE)
 ```

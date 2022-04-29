@@ -92,3 +92,7 @@ nx.draw_networkx_edges(graph, pos, edgelist=graph.edges, style='solid', alpha=0.
 
 plt.savefig(png_graph_name2, bbox_inches='tight')
 ```
+
+```{r}
+knitr::include_graphics(py$png_graph_name2)
+```

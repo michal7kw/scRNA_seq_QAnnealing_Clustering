@@ -2,8 +2,8 @@
 title: "R Notebook"
 output: html_notebook
 ---
-Processes Kidney dataset
-Selects and processes: selected_a(old embedding), selected_a_2(new embedding)
+takes dataset:    Kidney
+produces:         selected_a(old embedding), selected_a_2(new embedding)
 # Libraries
 ```{r warning=FALSE, message=FALSE, echo=FALSE}
 library(tidyverse)
@@ -129,8 +129,11 @@ DimPlot(kidney, reduction = "pca", group.by="celltype") + NoLegend()
 ```
 
 ```{r}
+library(randomcoloR)
 kidney <- RunUMAP(kidney, reduction = "pca", dims = 1:10)
-DimPlot(kidney, reduction = "umap", group.by="celltype",repel = TRUE, label = TRUE, label.size = 3) + NoLegend()
+DimPlot(kidney, reduction = "umap", group.by="celltype",repel = TRUE, label = TRUE, label.size = 3, cols = DiscretePalette(length(unique(kidney$celltype))) )+ NoLegend()
+
+#distinctColorPalette(length(unique(kidney$celltype)))
 ```
 
 ```{r, eval=FALSE}
@@ -158,6 +161,7 @@ selected_a_2 - the same as selected_a, but with the new embedding
 ## Select and Transform Data
 ```{r}
 unique(kidney$celltype)
+length(unique(kidney$celltype))
 ```
 
 ```{r}
@@ -212,24 +216,29 @@ selected_a_2_snn <- selected_a_2_snn_temp - diag(nrow=n, ncol=n)
 ```
 
 ```{r}
-isSymmetric(selected_a_2_snn)
+isSymmetric(as.matrix(selected_a_2_snn))
 ```
 
 ```{r}
+library(proxyC) 
 # ------- limitation of nodes degrees SYMMETRICS-------
+print(sum(colZeros(selected_a_2_snn)))
 for (i in 1:n){
   to_delete <- order(selected_a_2_snn[,i], decreasing = TRUE)[seq(ord+1,n,1)]
   selected_a_2_snn[,i][to_delete] <- integer(n-ord)
   selected_a_2_snn[i,][to_delete] <- integer(n-ord)
 }
+print(sum(colZeros(selected_a_2_snn)))
 ```
 
 ```{r, eval=FALSE}
 # ------- limitation of nodes degrees UNSYMMETRIC -------
+print(sum(colZeros(selected_a_2_snn)))
 for (i in 1:n){
   to_delete <- order(selected_a_2_snn[,i], decreasing = TRUE)[seq(ord+1,n,1)]
   selected_a_2_snn[,i][to_delete] <- integer(n-ord)
 }
+print(sum(colZeros(selected_a_2_snn)))
 ```
 
 ```{r, eval=FALSE}
@@ -242,7 +251,7 @@ for (i in 1:n){
     selected_a_2_snn[i,] <- selected_a_2_snn_old[i,]+selected_a_2_snn_old[,i]
 }
 
-# Method 2
+# Method 2 (better)
 mutual = matrix(0,n,n)
 
 for (i in 1:n){

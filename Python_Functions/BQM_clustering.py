@@ -22,7 +22,7 @@ from dwave.cloud.client import Client
 
 import json
 
-def clustering_bqm(G, iteration, dirs, solver, gamma_factor, color, terminate_on, size_limit, iter_limit):
+def clustering_bqm(G, iteration, dirs, solver, gamma_factor, color, terminate_on, size_limit, iter_limit, chain_strength):
 
     name_spec = ''.join([dirs["name"], "_", solver]) 
     
@@ -50,7 +50,7 @@ def clustering_bqm(G, iteration, dirs, solver, gamma_factor, color, terminate_on
     print("... Running on QPU ...")
     
     num_reads = 500
-    chain_strength = 20
+    chain_strength = chain_strength
 
     if solver == "hybrid":
         sampler = LeapHybridSampler()
@@ -130,13 +130,38 @@ def clustering_bqm(G, iteration, dirs, solver, gamma_factor, color, terminate_on
             clustering_bqm(G.subgraph(S1), iteration+1, dirs, solver, gamma_factor, color+20, terminate_on, size_limit, iter_limit)
     #to-do
     elif terminate_on == "conf":
-        print("energies", response.record.energy[:10])
-        if response.record.energy[3]>0.1: # this is to avoid dicivion by 0
-            ratio = response.record.energy[0]/response.record.energy[3]
-        difference = np.abs(response.record.energy[0]-response.record.energy[3])
-        print("ratio:", ratio)
-        print("difference:", difference)
-        if difference > 10 and min(len(S0), len(S1)) > 5:
+        if len(response.record.energy) > 3:
+            print("energies", response.record.energy[:3])
+            if response.record.energy[3]>0.1 or response.record.energy[3]<-0.1: # this is to avoid dicivion by 0
+                ratio = response.record.energy[0]/response.record.energy[3]
+            else:
+                print("error: 3rd lowest energy too close to zero; check your results")
+                col = random.randint(0, 100)
+                for i in G.nodes:
+                    G.nodes(data=True)[i][label] = col
+                return response
+            difference = np.abs(response.record.energy[0]-response.record.energy[3])
+            print("ratio:", ratio)
+            print("difference:", difference)
+            if ratio > 1.5 and min(len(S0), len(S1)) > 5 and iteration < iter_limit:
+                # Assign nodes' labels
+                col = random.randint(0, 100)
+                for i in S0:
+                    # G.nodes(data=True)[i][label] = 100 - color
+                    G.nodes(data=True)[i][label] = col
+                
+                col = random.randint(120, 220)    
+                for i in S1:
+                    # G.nodes(data=True)[i][label] = color - 100
+                    G.nodes(data=True)[i][label] = col
+                
+                clustering_bqm(G.subgraph(S0), iteration+1, dirs, solver, gamma_factor, color+20, terminate_on, size_limit, iter_limit)
+                clustering_bqm(G.subgraph(S1), iteration+1, dirs, solver, gamma_factor, color+20, terminate_on, size_limit, iter_limit)
+            col = random.randint(0, 100)
+            for i in G.nodes:
+                G.nodes(data=True)[i][label] = col
+            return response
+        elif min(len(S0), len(S1)) > 5 and iteration < iter_limit:
             # Assign nodes' labels
             col = random.randint(0, 100)
             for i in S0:
@@ -147,10 +172,14 @@ def clustering_bqm(G, iteration, dirs, solver, gamma_factor, color, terminate_on
             for i in S1:
                 # G.nodes(data=True)[i][label] = color - 100
                 G.nodes(data=True)[i][label] = col
-
             clustering_bqm(G.subgraph(S0), iteration+1, dirs, solver, gamma_factor, color+20, terminate_on, size_limit, iter_limit)
             clustering_bqm(G.subgraph(S1), iteration+1, dirs, solver, gamma_factor, color+20, terminate_on, size_limit, iter_limit)
-
+        else:
+            col = random.randint(0, 100)
+            for i in G.nodes:
+                G.nodes(data=True)[i][label] = col
+            return response
+    
     elif terminate_on == "once":
         col = random.randint(0, 100)
         for i in S0:
@@ -190,7 +219,7 @@ def clustering_bqm_2(G, iteration, dirs, solver, gamma_factor, color, terminate_
 
     chain_strength = weights_mean * degrees_mean * 2
     # chain_strength = gamma_factor * edges_weights
-    gamma = weights_sum/nodes_len
+    gamma = (weights_sum/nodes_len) * gamma_factor
     # gamma = gamma_factor/nodes_len
     print("gamma: ", gamma)
     print("chain_strength: ", chain_strength)
@@ -208,7 +237,7 @@ def clustering_bqm_2(G, iteration, dirs, solver, gamma_factor, color, terminate_
 
     print("... Running on QPU ...")
     
-    num_reads = 10
+    num_reads = 5000
     # chain_strength = 20
 
     if solver == "hybrid":

@@ -29,18 +29,12 @@ use_virtualenv("scrna_proj")
 ```{python}
 import networkx as nx
 
-id_type, type = int(r.id_type)-1, r.type
-n = int(r.n)
-k = int(r.k)
-ord = int(r.ord)
-dim = int(r.dim)
-
 # name = "239pru_graph_snn_k5_dim15_trimmed_15"
 # path = "../../graphs/pbmc3k/"
 # gexf_graph_name = ''.join([path, name, ".gexf"])
 
-name = "1001_graph_snn_k5_dim15_trimmed_15"
-path = "../../graphs/kidney/not_enhanced/"
+name = "512_graph_snn_k16_dim15_trimmed_10"
+path = "../../graphs/pbmc3k/"
 gexf_graph_name = ''.join([path, name, ".gexf"])
 
 
@@ -87,8 +81,6 @@ nx.draw_networkx_edges(graph, pos, edgelist=graph.edges, style='solid', alpha=0.
 
 plt.savefig(png_graph_name2, bbox_inches='tight')
 ```
-
-```{python}
-node_color=[ '#%02x%02x%02x' % (random.randint(0, 255),random.randint(0, 255),random.randint(0, 255))]
+```{r, echo=FALSE}
+knitr::include_graphics(py$png_graph_name2)
 ```
-

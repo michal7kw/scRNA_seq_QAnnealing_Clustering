@@ -1,0 +1,15 @@
+All R scripts should be run with the working_dir=file_source_dir 
+Folders used by the R scripts (all at the same level as R folder):
+- output			(generated Graphs in .gexf/.png)
+- graphs_diff_params	(generated Graphs in .gexf/.png)
+- graphs_data_prep	(generated Graphs in .gexf/.png)
+- graphs_csv		(generated Graphs in .csv)
+- dataIn			(data from QA)
+- data    			(datasets)
+
+Folder used by QA code (all at the same level as main.py):
+- DatasetsIn		(data from R)
+- DatasetsOut		(data for R)
+- Embedding			(saved fixed embeddings)
+- PlotsIn			(input graphs plots)
+- PlotsOut			(output graphs plots)

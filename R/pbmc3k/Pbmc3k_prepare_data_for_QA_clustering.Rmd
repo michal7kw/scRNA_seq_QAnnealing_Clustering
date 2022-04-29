@@ -42,9 +42,9 @@ pbmc3k <- subset(pbmc3k, subset = nFeature_RNA > 200 & nFeature_RNA < 2500 & per
 
 # ------- Subset the data -------
 # pbmc3k_QA <- pbmc3k
-# pbmc3k_QA <- pbmc3k[,1:2048]
+pbmc3k_QA <- pbmc3k[,1:2048]
 # pbmc3k_QA <- pbmc3k[,1:1024]
-pbmc3k_QA <- pbmc3k[,1:512]
+# pbmc3k_QA <- pbmc3k[,1:512]
 # pbmc3k_QA <- pbmc3k[,1:256]
 # pbmc3k_QA <- pbmc3k[,1:128]
 
@@ -58,20 +58,20 @@ n = ncol(pbmc3k_QA)
 dim(pbmc3k_QA)
 
 type = c("_", "_trimmed_", "_negedges_", "_trimmed_negedges_")
-id_type = 1
+id_type = 2
 dim = 15
-k = 5
-coff = 0 #1/15
-ord = 10
+k = 16
+coff = 0 #0.067 #1/15
+ord = 16
 
-pbmc3k_QA <- FindNeighbors(pbmc3k_QA, reduction = "pca", dims = 1:dim, k.param=k, compute.SNN=TRUE) #prune.SNN=coff
+pbmc3k_QA <- FindNeighbors(pbmc3k_QA, reduction = "pca", dims = 1:dim, k.param=k, compute.SNN=TRUE, prune.SNN=coff)
 
 pbmc3k_QA_snn_temp <- pbmc3k_QA@graphs[["SCT_snn"]]
 
 dim(pbmc3k_QA_snn_temp)
 pbmc3k_QA_snn <- pbmc3k_QA_snn_temp - diag(n)
 
-# ------- limitation of nodes degrees -------
+# ------- limitation of nodes degrees SYMMETRIC -------
 for (i in 1:n){
   to_delete <- order(pbmc3k_QA_snn[,i], decreasing = TRUE)[seq(ord+1,n,1)]
   pbmc3k_QA_snn[,i][to_delete] <- integer(n-ord)

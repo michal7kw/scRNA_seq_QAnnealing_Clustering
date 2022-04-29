@@ -1,1 +1,1 @@
-Illustrations of the output (clustered) graphs
+Graphics of the output (clustered) graphs.

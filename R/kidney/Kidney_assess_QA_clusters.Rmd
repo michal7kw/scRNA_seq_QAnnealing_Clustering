@@ -3,9 +3,8 @@ title: "R Notebook"
 output: html_notebook
 ---
 takes QA clustered graph:   QA_clusters
-takes Seurat object:        selected_a              (from "Data_subsampling" notebook, original graph)
-takes Seurat object:        selected_a_2            (from "Data_subsampling" notebook, original graph)
-takes Seurat object:        selected_b_2_pruned     (from "Data_subsampling" notebook, pruned graph)
+takes Seurat object:        selected_a              (from "Kidney_data" notebook, original graph)
+takes Seurat object:        selected_a_2            (from "Kidney_data" notebook, original graph)
 # Libraries
 ```{r warning=FALSE, message=FALSE, echo=FALSE}
 library(tidyverse)
@@ -32,8 +31,10 @@ use_virtualenv("scrna_proj")
 
 ```{python}
 import networkx as nx
-QA_output_name = "1000_cqm_graph_snn_k10_dim30_g0005_trimmed_15enhextra.gexf"
-
+QA_output_name = "1000_cqm_graph_snn_k10_dim30_g0005_trimmed_15enh.gexf"
+QA_output_name = "1000_nodes/single_enh/sample_number8.gexf"
+QA_output_name = "1000_nodes/double_enh/sample_number2.gexf"
+QA_output_name = "1000_nodes/1000_cqm_graph_snn_k10_dim30_g0005_trimmed_15_enh3.gexf"
 QA_clusters = nx.read_gexf(''.join(["../../dataIn/kidney/", QA_output_name]))
 
 # ------- CHOSE THE CORRECT OPTION BASED ON THE EXPORTED FORMAT -------
@@ -58,13 +59,39 @@ DimPlot(selected_a_2, reduction = "pca", group.by="QA")
 ```
 
 ```{r}
+png(file="../../output/selected_a_seurat.png")
+DimPlot(selected_a, reduction = "umap", group.by="seurat_clusters") # + NoLegend()
+dev.off()
+
+png(file="../../output/selected_a_QA.png")
+DimPlot(selected_a, reduction = "umap", group.by="QA") # + NoLegend()
+dev.off()
+
+png(file="../../output/selected_a_celltypes.png")
+DimPlot(selected_a, reduction = "umap", group.by="celltype") # + NoLegend()
+dev.off()
+
 par(mfrow = c(1, 2))
 DimPlot(selected_a, reduction = "umap", group.by="QA") # + NoLegend()
 DimPlot(selected_a, reduction = "umap", group.by="seurat_clusters") # + NoLegend()
+DimPlot(selected_a, reduction = "umap", group.by="celltype") # + NoLegend()
 ```
 
 ```{r}
+png(file="../../output/selected_a_2_seurat.png")
+DimPlot(selected_a_2, reduction = "umap", group.by="seurat_clusters") # + NoLegend()
+dev.off()
+
+png(file="../../output/selected_a_2_QA.png")
+DimPlot(selected_a_2, reduction = "umap", group.by="QA") # + NoLegend()
+dev.off()
+
+png(file="../../output/selected_a_2_celltypes.png")
+DimPlot(selected_a_2, reduction = "umap", group.by="celltype") # + NoLegend()
+dev.off()
+
 par(mfrow = c(1, 2))
 DimPlot(selected_a_2, reduction = "umap", group.by="QA") # + NoLegend()
 DimPlot(selected_a_2, reduction = "umap", group.by="seurat_clusters") # + NoLegend()
+DimPlot(selected_a_2, reduction = "umap", group.by="celltype") # + NoLegend()
 ```
