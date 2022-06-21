@@ -23,6 +23,6 @@ code is in the development stage
 
 
 ## PrintOuts
-<img src="img/knn_snn.png" alt="drawing1" style="width:200px;"/>
+<img src="img/cells.png" alt="drawing1" style="width:200px;"/>
 <img src="img/QA_alternative_enenergies.png" alt="drawing2" style="width:200px;"/>
 <img src="img/graph_partitioning.png" alt="drawing3" style="width:200px;"/>
